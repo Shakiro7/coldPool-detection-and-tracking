@@ -367,6 +367,7 @@ def createCpDf(coldpool_list,rainpatch_list):
     
     cp_df = pd.DataFrame(list(zip([obj.getId() for obj in coldpool_list],
                                   [obj.getOrigin() for obj in coldpool_list],
+                                  [obj.getStart() for obj in coldpool_list],
                                   [obj.getArea() for obj in coldpool_list],
                                   [obj.getAge() for obj in coldpool_list],
                                   [obj.getTvMean() for obj in coldpool_list],
@@ -376,24 +377,31 @@ def createCpDf(coldpool_list,rainpatch_list):
                                   [len(obj.getPatrons()) for obj in coldpool_list],
                                   [obj.getGeneration() for obj in coldpool_list],
                                   [obj.getFamily() for obj in coldpool_list],
+                                  [len(obj.getMerged()) for obj in coldpool_list],
                                   )),
-                         columns=['CP_ID','Origin','Max_area','Max_age',
+                         columns=['CP_ID','Origin','Start_tstep','Max_area','Max_age',
                                   'Initial_tv_mean','Initial_contact',
                                   'No_parents','No_children','No_patrons',
-                                  'Generation','Family_ID'])
+                                  'Generation','Family_ID','No_merged'])
     
     cp_df['Initial_contact'] = pd.Categorical(cp_df.Initial_contact)
     
     # Identify the parent rain duration and the initial rint mean for each cold pool
     rainDuration_list = []
-    initialRintMean_list = []    
-    for cp in cp_df.CP_ID:        
-        for i, obj in enumerate(rainpatch_list):
-            if obj.getId() == cp:
-                index = i
-                break        
-        rainDuration_list.append(rainpatch_list[index].getAge())
-        initialRintMean_list.append(rainpatch_list[index].getRintMean())
+    initialRintMean_list = []
+    k = 0    
+    for cp in cp_df.CP_ID:
+        if cp_df['No_merged'][k] == 0:       
+            for i, obj in enumerate(rainpatch_list):
+                if obj.getId() == cp:
+                    index = i
+                    break        
+            rainDuration_list.append(rainpatch_list[index].getAge())
+            initialRintMean_list.append(rainpatch_list[index].getRintMean())
+        else:
+            rainDuration_list.append(None)
+            initialRintMean_list.append(None)
+        k += 1            
         
     # Add both variables to the cold pool dataframe
     cp_df['Initial_rint_mean'] = initialRintMean_list

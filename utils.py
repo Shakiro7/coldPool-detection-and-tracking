@@ -63,6 +63,40 @@ def checkBlobContact(pixelBlob,labeledBlobs):
     else:
         return True
 
+# Function to create lists for master predators and their preys.
+# If a prey is also predator, the master predator gets those preys as well
+def createUniquePredatorPreyLists(predatorList,preyList):
+    predator = predatorList
+    prey = preyList
+    
+    predatorSet = set(predator)
+    intersectionSet = predatorSet.intersection(prey)
+    intersection = list(intersectionSet)      
+    
+    while len(intersection) > 0:    
+        for predprey in intersection:
+            masterpred = predator[prey.index(predprey)]
+            predprey_indices = [i for i, val in enumerate(predator) if val == predprey]
+            for index in predprey_indices:
+                predator[index] = masterpred
+                        
+        predatorSet = set(predator)
+        intersectionSet = predatorSet.intersection(prey)
+        intersection = list(intersectionSet)        
+            
+    predator_new = list(np.unique(predator))
+    prey_new = [ [] for _ in range(len(predator_new)) ]
+    
+    k = 0
+    for pred in predator_new:
+        pred_indices = [i for i, val in enumerate(predator) if val == pred]
+        for index in pred_indices:
+            prey_new[k].append(prey[index])
+        k += 1
+
+    return predator_new, prey_new, predator_new+prey
+
+
 
 # Function to combine the markers from new rain events and exisiting cold pools
 def combineMarkers(rainfield_list,rainPatchList,oldCps,coldPoolList,segmentation,dissipationThresh=3):
@@ -101,17 +135,38 @@ def combineMarkers(rainfield_list,rainPatchList,oldCps,coldPoolList,segmentation
                         rainPatchList[index].setPatrons(patron)
         else:
             # If no, get the last rain patch of that cold pool and check if the segmentation still allows it
-            for i, obj in enumerate(rainPatchList):
+            # First find the old cold pool and check if it merged during the last time step
+            for i, obj in enumerate(coldPoolList):
                 if obj.getId() == oldCpLabel:
-                    index = i
+                    index_oldCp = i
                     break
-            lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
-            for i, obj in enumerate(rainfield_list):
-                if obj.getTimestep() == lastTimestep:
-                    index = i
-                    break             
-            oldRainMarkers = rainfield_list[index].getRainMarkers()
-            pixel_rain = oldRainMarkers == oldCpLabel
+            if (len(coldPoolList[index_oldCp].getMerged()) > 0) & (
+                    rainfield_list[-2].getTimestep()==coldPoolList[index_oldCp].getStart()):
+                pixel_rain = np.zeros_like(rainMarkers,dtype=bool)
+                for merged_cp in coldPoolList[index_oldCp].getMerged():
+                    for i, obj in enumerate(rainPatchList):
+                        if obj.getId() == merged_cp:
+                            index = i
+                            break
+                    lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
+                    for i, obj in enumerate(rainfield_list):
+                        if obj.getTimestep() == lastTimestep:
+                            index = i
+                            break
+                    oldRainMarkers = rainfield_list[index].getRainMarkers()
+                    pixel_rain = np.where(oldRainMarkers == merged_cp,True,pixel_rain)
+            else:
+                for i, obj in enumerate(rainPatchList):
+                    if obj.getId() == oldCpLabel:
+                        index = i
+                        break
+                lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
+                for i, obj in enumerate(rainfield_list):
+                    if obj.getTimestep() == lastTimestep:
+                        index = i
+                        break             
+                oldRainMarkers = rainfield_list[index].getRainMarkers()
+                pixel_rain = oldRainMarkers == oldCpLabel
             pixel_count_rain = np.count_nonzero(pixel_rain)
             rain_overlap = pixel_rain * segmentation
             # If the segmentation still allows 100% of that rain patch (is 1 everywhere): add that rain patch to markers

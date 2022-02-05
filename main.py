@@ -22,7 +22,7 @@ from postprocessing import exportDfs, exportFields
 
 # Timesteps to be analyzed
 start = 610
-end = 660
+end = 620
 
 # Dataset
 simulation = "diurnal4K_200m"   
@@ -64,30 +64,30 @@ postprocessingDict = {
     "simulation_name": simulation,
     # Domain statistics over time ---------------------------------------------
     "domain": True,
-    "save_domain": True,
+    "save_domain": False,
     # Fields ------------------------------------------------------------------
     "labeledCps": True,
-    "labeledCpsNonDiss": True,
+    "labeledCpsNonDiss": False,
     "stateLabels": True,
     "labeledFamilies": True,
-    "labeledFamiliesNonDiss": True,
+    "labeledFamiliesNonDiss": False,
     "tv": False,
     "rint": False,
     "showDynGustFront": True, # in the above fields
-    "save_fields": True,
+    "save_fields": False,
     # Cold pool & family statistics -------------------------------------------
     "cp": True,
     "family": True,
-    "save_statistics": True,
+    "save_statistics": False,
     
     # Export of dataframes ----------------------------------------------------
-    "export_domainDf": True, # domain needs to be True as well
-    "export_cpDf": True,
-    "export_familyDf": True,
+    "export_domainDf": False, # domain needs to be True as well
+    "export_cpDf": False,
+    "export_familyDf": False,
     
     # Export of fields (as compressed single file for each tstep)--------------
-    "export_rawDataMl": True,
-    "export_analysisData": True   
+    "export_rawDataMl": False,
+    "export_analysisData": False   
 }
 # =============================================================================
 

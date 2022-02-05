@@ -129,14 +129,17 @@ class RainField:
                 self.__rainMarkers = np.where(self.__rainMarkers==patch,0,self.__rainMarkers)
             l += 1
         
-        # Change labels to start after the max of the last timestep if existing
+        # Change labels to start after the max of the last timestep (rainMarkers & old cps) if existing
         if rainMarkersOld is not None:
             label_list = np.unique(self.__rainMarkers)
             if label_list[0] == 0:                    
                 label_list = label_list[1:]        
             j = len(label_list)
+            lastMax = max([obj.getId() for obj in RainField.rainpatch_list])
+            if np.max(oldCps) > lastMax:
+                lastMax = np.max(oldCps)
             for labl in reversed(label_list):
-                self.__rainMarkers = np.where(self.__rainMarkers==labl,np.max(rainMarkersOld)+j,self.__rainMarkers)
+                self.__rainMarkers = np.where(self.__rainMarkers==labl,lastMax+j,self.__rainMarkers)
                 j -= 1   
 
         # Take care of periodic BC for rain marker patches
