@@ -22,7 +22,7 @@ from postprocessing import exportDfs, exportFields
 
 # Timesteps to be analyzed
 start = 610
-end = 630
+end = 660
 
 # Dataset
 simulation = "diurnal4K_200m"   
@@ -54,7 +54,7 @@ dissipationThresh: Min. number of time steps a rain patch is kept (still gets a 
 
 # Setup
 rintThresh = 2          # mm/h
-mergeThresh = 1.0       # overlap for merge
+mergeThresh = 0.25       # overlap for merge
 rainPatchMinSize = 25   # min. no. of pixel
 dissipationThresh = 0   # number of time steps
 periodicDomain = True
@@ -65,7 +65,7 @@ postprocessingDict = {
     "simulation_name": simulation,
     # Domain statistics over time ---------------------------------------------
     "domain": True,
-    "save_domain": False,
+    "save_domain": True,
     # Fields ------------------------------------------------------------------
     "labeledCps": True,
     "labeledCpsNonDiss": False,
@@ -75,20 +75,20 @@ postprocessingDict = {
     "tv": False,
     "rint": False,
     "showDynGustFront": True, # in the above fields
-    "save_fields": False,
+    "save_fields": True,
     # Cold pool & family statistics -------------------------------------------
     "cp": True,
     "family": True,
-    "save_statistics": False,
+    "save_statistics": True,
     
     # Export of dataframes ----------------------------------------------------
-    "export_domainDf": False, # domain needs to be True as well
-    "export_cpDf": False,
-    "export_familyDf": False,
+    "export_domainDf": True, # domain needs to be True as well
+    "export_cpDf": True,
+    "export_familyDf": True,
     
     # Export of fields (as compressed single file for each tstep)--------------
-    "export_rawDataMl": False,
-    "export_analysisData": False   
+    "export_rawDataMl": True,
+    "export_analysisData": True   
 }
 # =============================================================================
 
