@@ -22,7 +22,7 @@ from postprocessing import exportDfs, exportFields
 
 # Timesteps to be analyzed
 start = 610
-end = 620
+end = 630
 
 # Dataset
 simulation = "diurnal4K_200m"   
@@ -54,6 +54,7 @@ dissipationThresh: Min. number of time steps a rain patch is kept (still gets a 
 
 # Setup
 rintThresh = 2          # mm/h
+mergeThresh = 1.0       # overlap for merge
 rainPatchMinSize = 25   # min. no. of pixel
 dissipationThresh = 0   # number of time steps
 periodicDomain = True
@@ -137,7 +138,8 @@ for i in range(end-start):
                                       mask=segmentation,
                                       periodicDomain=periodicDomain,
                                       domainStats=postprocessingDict["domain"],
-                                      fillOnlyBackgroundHoles=False)                                      
+                                      fillOnlyBackgroundHoles=False,
+                                      mergeThreshold=mergeThresh)                                      
         coldpoolfield_list.append(coldpoolfield)   
     
     else:
@@ -178,7 +180,8 @@ for i in range(end-start):
                                       oldCps=coldpoolfield_list[i-1].getLabeledCps(),
                                       periodicDomain=periodicDomain,
                                       domainStats=postprocessingDict["domain"],
-                                      fillOnlyBackgroundHoles=False)  
+                                      fillOnlyBackgroundHoles=False,
+                                      mergeThreshold=mergeThresh)  
         coldpoolfield_list.append(coldpoolfield)    
 
         

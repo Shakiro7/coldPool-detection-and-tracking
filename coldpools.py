@@ -241,7 +241,7 @@ class ColdPoolField:
         "noFamiliesInactive": []}
     
     def __init__(self,timestep,markers,rainPatchList,rainMarkers,dataloader,mask,oldCps=None,
-                 periodicDomain=True,domainStats=False,fillOnlyBackgroundHoles=False):
+                 periodicDomain=True,domainStats=False,fillOnlyBackgroundHoles=False,mergeThreshold=0.5):
         
         self.__tstep = timestep
         markers = markers
@@ -255,6 +255,7 @@ class ColdPoolField:
         periodicBc = periodicDomain
         stats = domainStats
         fillOnlyBackgroundHoles = fillOnlyBackgroundHoles
+        mergeThresh = mergeThreshold
         
         # Fill the elevation map (here virtualTemp) at markers and mask it
         # In case of periodic BC wrap the whole domain and slice after flooding
@@ -313,13 +314,15 @@ class ColdPoolField:
         if labeledCpsOld is not None:
             mergedField, mergeDict, mergeList = mergeNew(self.__labeledCps,labeledCpsOld,
                                                          rainMarkers,rainPatchList,
-                                                         ColdPoolField.coldpool_list,0.5)
+                                                         ColdPoolField.coldpool_list,mergeThresh)
             
             # If merging took place create new ColdPools for those 
             if len(mergeDict["newLabels"]) > 0:
                 print("Merged CPs: " + str(len(mergeDict["newLabels"])))
                 l = 0
                 for cp in mergeDict["newLabels"]:
+                    print("CP " + str(mergeDict["predator"][l]) + " overruled CP " + 
+                          str(mergeDict["prey"][l]) + ". New label: " + str(mergeDict["newLabels"][l]))
                     cp_region = mergedField == cp
                     predator = mergeDict["predator"][l]
                     # Copy the family related properties from its predator
@@ -337,7 +340,8 @@ class ColdPoolField:
                                         area=np.count_nonzero(cp_region),virtualTemp_mean=np.mean(tv[cp_region]),dissipating=state,
                                         parents=cp_parents,merged=mergers,intersecting=checkBlobContact(cp_region, mergedField),
                                         generation=generation,family=family)                   
-                    ColdPoolField.coldpool_list.append(coldpool) 
+                    ColdPoolField.coldpool_list.append(coldpool)
+                    l += 1
 
         # Create ColdPools for all unique labels in labeledCps and store them in the list
         cp_labels, cp_counts = unique_nonzero(self.__labeledCps, return_counts=True)

@@ -63,26 +63,72 @@ def checkBlobContact(pixelBlob,labeledBlobs):
     else:
         return True
 
+
+# Function to check and correct predator-prey relations that occur in both directions
+def correctPredPreyRepitions(predatorList,preyList):
+    predator = predatorList
+    prey = preyList
+    repitition_test = [ [] for _ in range(len(predator)) ]
+    for i in range(len(predator)):
+        repitition_test[i] = sorted([predator[i], prey[i]])           
+    repitition_count=[repitition_test.count(x) for x in repitition_test]
+    
+    if any(np.array(repitition_count) > 1):
+        i = 0
+        while i < len(predator):
+            if repitition_count[i] > 1:
+                pred_count = predator.count(predator[i])
+                prey_count = predator.count(prey[i])
+                if prey_count >= pred_count:
+                    predator_temp = predator[i]
+                    predator[i] = prey[i]
+                    prey[i] = predator_temp
+                    if prey.count(prey[i]) > 1:
+                        del prey[i]
+                        del predator[i]
+                        i -= 1
+            i += 1
+    return predator, prey
+    
+
 # Function to create lists for master predators and their preys.
 # If a prey is also predator, the master predator gets those preys as well
 def createUniquePredatorPreyLists(predatorList,preyList):
     predator = predatorList
     prey = preyList
+  
+    # Check if there are equal elements in the lists and if yes, delete those entries
+    if any(np.array(predator) == np.array(prey)):
+        itemindex = np.where(np.array(predator) == np.array(prey))
+        predator = np.delete(predator, itemindex)
+        prey = np.delete(prey, itemindex)    
+    
+    # Check and correct for repeating relationships
+    predator,prey = correctPredPreyRepitions(predator, prey)
     
     predatorSet = set(predator)
     intersectionSet = predatorSet.intersection(prey)
     intersection = list(intersectionSet)      
     
-    while len(intersection) > 0:    
-        for predprey in intersection:
-            masterpred = predator[prey.index(predprey)]
-            predprey_indices = [i for i, val in enumerate(predator) if val == predprey]
-            for index in predprey_indices:
-                predator[index] = masterpred
-                        
-        predatorSet = set(predator)
-        intersectionSet = predatorSet.intersection(prey)
-        intersection = list(intersectionSet)        
+    count = 0
+    while len(intersection) > 0:
+        if count == 100:
+            print("Predator list: ")
+            print(predatorList)
+            print("Prey list: ")
+            print(preyList)
+            raise RuntimeError('Could not solve predator-prey relations')
+        else:
+            for predprey in intersection:
+                masterpred = predator[prey.index(predprey)]
+                predprey_indices = [i for i, val in enumerate(predator) if val == predprey]
+                for index in predprey_indices:
+                    predator[index] = masterpred
+                            
+            predatorSet = set(predator)
+            intersectionSet = predatorSet.intersection(prey)
+            intersection = list(intersectionSet)
+            count += 1        
             
     predator_new = list(np.unique(predator))
     prey_new = [ [] for _ in range(len(predator_new)) ]
@@ -135,26 +181,39 @@ def combineMarkers(rainfield_list,rainPatchList,oldCps,coldPoolList,segmentation
                         rainPatchList[index].setPatrons(patron)
         else:
             # If no, get the last rain patch of that cold pool and check if the segmentation still allows it
-            # First find the old cold pool and check if it merged during the last time step
+            # First find the old cold pool and check if it merged
             for i, obj in enumerate(coldPoolList):
                 if obj.getId() == oldCpLabel:
                     index_oldCp = i
                     break
-            if (len(coldPoolList[index_oldCp].getMerged()) > 0) & (
-                    rainfield_list[-2].getTimestep()==coldPoolList[index_oldCp].getStart()):
-                pixel_rain = np.zeros_like(rainMarkers,dtype=bool)
-                for merged_cp in coldPoolList[index_oldCp].getMerged():
+            if len(coldPoolList[index_oldCp].getMerged()) > 0:
+                # Check if the merged CP already had own rain. If not, take the last rain of the contributors
+                if oldCpLabel in [obj.getId() for obj in rainPatchList]:
                     for i, obj in enumerate(rainPatchList):
-                        if obj.getId() == merged_cp:
+                        if obj.getId() == oldCpLabel:
                             index = i
                             break
                     lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
                     for i, obj in enumerate(rainfield_list):
                         if obj.getTimestep() == lastTimestep:
                             index = i
-                            break
+                            break             
                     oldRainMarkers = rainfield_list[index].getRainMarkers()
-                    pixel_rain = np.where(oldRainMarkers == merged_cp,True,pixel_rain)
+                    pixel_rain = oldRainMarkers == oldCpLabel
+                else:
+                    pixel_rain = np.zeros_like(rainMarkers,dtype=bool)
+                    for merged_cp in coldPoolList[index_oldCp].getMerged():
+                        for i, obj in enumerate(rainPatchList):
+                            if obj.getId() == merged_cp:
+                                index = i
+                                break
+                        lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
+                        for i, obj in enumerate(rainfield_list):
+                            if obj.getTimestep() == lastTimestep:
+                                index = i
+                                break
+                        oldRainMarkers = rainfield_list[index].getRainMarkers()
+                        pixel_rain = np.where(oldRainMarkers == merged_cp,True,pixel_rain)                                            
             else:
                 for i, obj in enumerate(rainPatchList):
                     if obj.getId() == oldCpLabel:
