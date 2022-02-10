@@ -64,6 +64,24 @@ def checkBlobContact(pixelBlob,labeledBlobs):
         return True
 
 
+# Function to create a list that contains the labels of the root ends of a merged cold pool 
+def findRootEnds(coldPoolList,contributorList):    
+    mergedCp_list = contributorList.copy()
+    rootCp_list = []        
+    for cp in mergedCp_list:
+        for i, obj in enumerate(coldPoolList):
+            if obj.getId() == cp:
+                index_cp = i
+                break 
+        if len(coldPoolList[index_cp].getMerged()) == 0:
+            rootCp_list.append(cp)
+        else:
+            for prev_cp in coldPoolList[index_cp].getMerged():
+                mergedCp_list.append(prev_cp)    
+    
+    return rootCp_list
+    
+
 # Function to check and correct predator-prey relations that occur in both directions
 def correctPredPreyRepitions(predatorList,preyList):
     predator = predatorList
@@ -80,13 +98,10 @@ def correctPredPreyRepitions(predatorList,preyList):
                 pred_count = predator.count(predator[i])
                 prey_count = predator.count(prey[i])
                 if prey_count >= pred_count:
-                    predator_temp = predator[i]
-                    predator[i] = prey[i]
-                    prey[i] = predator_temp
-                    if prey.count(prey[i]) > 1:
-                        del prey[i]
-                        del predator[i]
-                        i -= 1
+                    del prey[i]
+                    del predator[i]
+                    del repitition_count[i]
+                    i -= 1
             i += 1
     return predator, prey
     
@@ -94,8 +109,8 @@ def correctPredPreyRepitions(predatorList,preyList):
 # Function to create lists for master predators and their preys.
 # If a prey is also predator, the master predator gets those preys as well
 def createUniquePredatorPreyLists(predatorList,preyList):
-    predator = predatorList
-    prey = preyList
+    predator = predatorList.copy()
+    prey = preyList.copy()
   
     # Check if there are equal elements in the lists and if yes, delete those entries
     if any(np.array(predator) == np.array(prey)):
@@ -112,7 +127,7 @@ def createUniquePredatorPreyLists(predatorList,preyList):
     
     count = 0
     while len(intersection) > 0:
-        if count == 100:
+        if count == 1000:
             print("Predator list: ")
             print(predatorList)
             print("Prey list: ")
@@ -189,6 +204,7 @@ def combineMarkers(rainfield_list,rainPatchList,oldCps,coldPoolList,segmentation
             if len(coldPoolList[index_oldCp].getMerged()) > 0:
                 # Check if the merged CP already had own rain. If not, take the last rain of the contributors
                 if oldCpLabel in [obj.getId() for obj in rainPatchList]:
+                    print(str(oldCpLabel) + " has own rain")
                     for i, obj in enumerate(rainPatchList):
                         if obj.getId() == oldCpLabel:
                             index = i
@@ -201,8 +217,13 @@ def combineMarkers(rainfield_list,rainPatchList,oldCps,coldPoolList,segmentation
                     oldRainMarkers = rainfield_list[index].getRainMarkers()
                     pixel_rain = oldRainMarkers == oldCpLabel
                 else:
+                    print(str(oldCpLabel) + " has no own rain")
                     pixel_rain = np.zeros_like(rainMarkers,dtype=bool)
-                    for merged_cp in coldPoolList[index_oldCp].getMerged():
+                    root_list = findRootEnds(coldPoolList,coldPoolList[index_oldCp].getMerged())
+                    print(coldPoolList[index_oldCp].getMerged())
+                    print(root_list)
+                    root_list = list(set(root_list))
+                    for merged_cp in root_list:
                         for i, obj in enumerate(rainPatchList):
                             if obj.getId() == merged_cp:
                                 index = i

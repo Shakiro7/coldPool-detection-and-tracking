@@ -18,7 +18,7 @@ from dataloader import DataLoader
 
 # Timesteps to be analyzed
 start = 610
-end = 640
+end = 660
 
 
 # Dataset   
@@ -37,10 +37,10 @@ postprocessingDict = {
     "showDynGustFront": False, # for tv and rint fields
     
     "rintContouredTv": True,
-    "rintContouredW": False,
+    "rintContouredW": True,
     "rintContouredWMasked": False
 }
-save = False
+save = True
 # =============================================================================
 
 
@@ -111,6 +111,7 @@ for i in range(end-start):
         # Find contours at a constant value of 1 and 2 mm/h
         contours1 = find_contours(filters.gaussian(dataloader.getRint(), sigma=2.0), 1)
         contours2 = find_contours(filters.gaussian(dataloader.getRint(), sigma=2.0), 2)
+        contours5 = find_contours(filters.gaussian(dataloader.getRint(), sigma=2.0), 5)
         
         # Display the image and plot all contours found
         fig, ax = plt.subplots(figsize=(10,10))
@@ -123,7 +124,10 @@ for i in range(end-start):
                 ax.plot(contour[:, 1], contour[:, 0], linewidth=1.5, color='red')
         for contour in contours2:
             if contour.shape[0] > 1:
-                ax.plot(contour[:, 1], contour[:, 0], linewidth=1.5, color='black') 
+                ax.plot(contour[:, 1], contour[:, 0], linewidth=1.5, color='purple')
+        for contour in contours5:
+            if contour.shape[0] > 1:
+                ax.plot(contour[:, 1], contour[:, 0], linewidth=1.5, color='black')                 
         ax.set_title('Rint contoured tv @ timestep ' + str(dataloader.getTimestep()))  
         if save:
             plt.savefig("Plots/"+str(dataloader.getTimestep())+"_rintContouredTv.png",bbox_inches='tight')
@@ -134,6 +138,7 @@ for i in range(end-start):
         # Find contours at a constant value of 1 and 2 mm/h
         contours1 = find_contours(filters.gaussian(dataloader.getRint(), sigma=2.0), 1)
         contours2 = find_contours(filters.gaussian(dataloader.getRint(), sigma=2.0), 2)
+        contours5 = find_contours(filters.gaussian(dataloader.getRint(), sigma=2.0), 5)
         
         # Display the image and plot all contours found
         fig, ax = plt.subplots(figsize=(10,10))
@@ -142,10 +147,13 @@ for i in range(end-start):
         im = ax.imshow(filters.gaussian(dataloader.getW(), sigma=2.0), cmap=cmap)
         fig.colorbar(im)     
         for contour in contours1:
-            if contour.shape[0] > 100:
+            if contour.shape[0] > 1:
                 ax.plot(contour[:, 1], contour[:, 0], linewidth=1.5, color='red')
         for contour in contours2:
-            if contour.shape[0] > 100:
+            if contour.shape[0] > 1:
+                ax.plot(contour[:, 1], contour[:, 0], linewidth=1.5, color='purple')
+        for contour in contours5:
+            if contour.shape[0] > 1:
                 ax.plot(contour[:, 1], contour[:, 0], linewidth=1.5, color='black') 
         ax.set_title('Rint contoured w @ timestep ' + str(dataloader.getTimestep()))  
         if save:

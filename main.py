@@ -54,7 +54,7 @@ dissipationThresh: Min. number of time steps a rain patch is kept (still gets a 
 
 # Setup
 rintThresh = 2          # mm/h
-mergeThresh = 0.25       # overlap for merge
+mergeThresh = 1.0       # overlap for merge
 rainPatchMinSize = 25   # min. no. of pixel
 dissipationThresh = 0   # number of time steps
 periodicDomain = True
@@ -82,13 +82,13 @@ postprocessingDict = {
     "save_statistics": True,
     
     # Export of dataframes ----------------------------------------------------
-    "export_domainDf": True, # domain needs to be True as well
-    "export_cpDf": True,
-    "export_familyDf": True,
+    "export_domainDf": False, # domain needs to be True as well
+    "export_cpDf": False,
+    "export_familyDf": False,
     
     # Export of fields (as compressed single file for each tstep)--------------
-    "export_rawDataMl": True,
-    "export_analysisData": True   
+    "export_rawDataMl": False,
+    "export_analysisData": False   
 }
 # =============================================================================
 

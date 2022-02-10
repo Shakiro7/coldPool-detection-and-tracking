@@ -197,6 +197,12 @@ def mergeNew(newLabeledField,oldLabeledField,rainMarkers,rainPatchList,coldPoolL
             blob_counts_old = np.delete(blob_counts_old, oldLabelindex)
             blobs_new = np.where(blobs_new==label,0,blobs_new)
 
+    # Initialize merge dict
+    mergeDict = {
+        "newLabels": [],
+        "predator": [],
+        "prey": []}
+
     # Check if new cold pools overruled old cold pools according to the tracking_factor
     if len(blob_labels_old) > 1:                   
         k = 0
@@ -239,17 +245,9 @@ def mergeNew(newLabeledField,oldLabeledField,rainMarkers,rainPatchList,coldPoolL
         
         # If not just return an empty dict and the original field
         else:
-            mergeDict = {
-                "newLabels": [],
-                "predator": [],
-                "prey": []}
             return newLabeledField, mergeDict, predPreyList            
 
     else:
         predPreyList = []
-        mergeDict = {
-            "newLabels": [],
-            "predator": [],
-            "prey": []}
         return newLabeledField, mergeDict, predPreyList
 
