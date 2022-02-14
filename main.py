@@ -22,7 +22,7 @@ from postprocessing import exportDfs, exportFields
 
 # Timesteps to be analyzed
 start = 610
-end = 624
+end = 630
 
 # Dataset
 simulation = "diurnal4K_200m"   

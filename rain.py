@@ -107,14 +107,14 @@ class RainField:
                  rainPatchMinSize=0,periodicDomain=True):
         
         self.__tstep = timestep
-        rint = rainIntensity
+        self.__rint = rainIntensity
         rainMarkersOld = rainMarkersOld
         oldCps = oldCps
         rintThresh = rainIntensityThreshold
         minSize = rainPatchMinSize
         periodicBc = periodicDomain
         
-        self.__rainMarkers = label(filters.gaussian(rint, sigma=2.0) >= rintThresh)
+        self.__rainMarkers = label(filters.gaussian(self.__rint, sigma=2.0) >= rintThresh)
         # Check if rain patches are smaller than bounding box in x and y and remove them if yes
         # for patch in  unique_nonzero(self.__rainMarkers, return_counts=False):
         #     slice_x, slice_y = ndi.find_objects(self.__rainMarkers==patch)[0]
@@ -184,7 +184,7 @@ class RainField:
                     # Create new RainPatch and append it to rainpatch_list
                     rain_region = self.__rainMarkers == rain
                     rainpatch = RainPatch(identificationNumber=rain,startTimestep=self.__tstep,area=rain_counts[n],
-                                          rint_mean=np.mean(rint[rain_region]))
+                                          rint_mean=np.mean(self.__rint[rain_region]))
                     RainField.rainpatch_list.append(rainpatch)                     
 
                 n += 1
@@ -196,7 +196,7 @@ class RainField:
                 # Create new RainPatches for all rain patches and append them to rainpatch_list
                 rain_region = self.__rainMarkers == rain
                 rainpatch = RainPatch(identificationNumber=rain,startTimestep=self.__tstep,area=rain_counts[n], 
-                                      rint_mean=np.mean(rint[rain_region]))
+                                      rint_mean=np.mean(self.__rint[rain_region]))
                 RainField.rainpatch_list.append(rainpatch)
                 n += 1
     
@@ -208,6 +208,10 @@ class RainField:
     def getTimestep(self):
         
         return self.__tstep
+
+    def getRint(self):
+        
+        return self.__rint
 
     def getRainMarkers(self):
         
