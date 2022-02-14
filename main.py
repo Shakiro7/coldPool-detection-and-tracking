@@ -13,7 +13,7 @@ from dataloader import DataLoader
 from rain import RainField
 from segmentation import segmentDomain
 from coldpools import ColdPoolField
-from utils import combineMarkers, unique_nonzero
+from utils import createMarkers, unique_nonzero
 from postprocessing import plotFields, plotCpStats, plotFamilyStats, plotDomainStats
 from postprocessing import createCpDf, createFamilyDf, createDomainStatsDf 
 from postprocessing import exportDfs, exportFields
@@ -54,7 +54,7 @@ dissipationThresh: Min. number of time steps a rain patch is kept (still gets a 
 
 # Setup
 rintThresh = 2          # mm/h
-mergeThresh = 1.0       # overlap for merge
+mergeThresh = 0.5       # overlap for merge
 rainPatchMinSize = 25   # min. no. of pixel
 dissipationThresh = 0   # number of time steps
 periodicDomain = True
@@ -128,10 +128,17 @@ for i in range(end-start):
                                      v=dataloader.getV(), 
                                      w=dataloader.getW(), 
                                      rint=dataloader.getRint())
+
+        # Create markers from rain patches
+        markers, segmentation = createMarkers(rainfield_list=rainfield_list,
+                                              rainPatchList=RainField.rainpatch_list,
+                                              segmentation=segmentation,
+                                              dissipationThresh=dissipationThresh,
+                                              periodicDomain=periodicDomain)
         
         # Create ColdPoolField and add to coldpoolfield list
         coldpoolfield = ColdPoolField(timestep=start+i,
-                                      markers=rainfield.getRainMarkers(),
+                                      markers=markers,
                                       rainPatchList=RainField.rainpatch_list,
                                       rainMarkers=rainfield.getRainMarkers(),
                                       dataloader=dataloader,
@@ -163,12 +170,13 @@ for i in range(end-start):
         
         # Combine the markers from rain and old cold pools and adapt the segmentation 
         # in case old cold pools are still active
-        markers, segmentation = combineMarkers(rainfield_list=rainfield_list,
-                                               rainPatchList=RainField.rainpatch_list,
-                                               oldCps=coldpoolfield_list[i-1].getLabeledCps(),
-                                               coldPoolList=ColdPoolField.coldpool_list,
-                                               segmentation=segmentation,
-                                               dissipationThresh=dissipationThresh)
+        markers, segmentation = createMarkers(rainfield_list=rainfield_list,
+                                              rainPatchList=RainField.rainpatch_list,
+                                              oldCps=coldpoolfield_list[i-1].getLabeledCps(),
+                                              coldPoolList=ColdPoolField.coldpool_list,
+                                              segmentation=segmentation,
+                                              dissipationThresh=dissipationThresh,
+                                              periodicDomain=periodicDomain)
         
         # Create ColdPoolField and add to coldpoolfield list
         coldpoolfield = ColdPoolField(timestep=start+i,
