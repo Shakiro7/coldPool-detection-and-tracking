@@ -247,7 +247,7 @@ class ColdPoolField:
         markers = markers
         rainPatchList = rainPatchList
         rainMarkers = rainMarkers
-        q01 = scale01(dataloader.getQ())
+        #q01 = scale01(dataloader.getQ())
         tv = dataloader.getTv()
         tv01 = scale01(tv)
         w01 = scale01(filters.gaussian(dataloader.getW(), sigma=2.0))
@@ -257,6 +257,7 @@ class ColdPoolField:
         stats = domainStats
         fillOnlyBackgroundHoles = fillOnlyBackgroundHoles
         mergeThresh = mergeThreshold
+      
 
         # # Plot markers over w field
         # markers_masked = np.ma.masked_array(markers,markers==0)
@@ -289,7 +290,7 @@ class ColdPoolField:
         # In case of periodic BC wrap the whole domain and slice after flooding
         if periodicBc:
             pad_width = (tv.shape[0], tv.shape[1])
-            self.__labeledCps = watershed(np.pad(q01+w01,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
+            self.__labeledCps = watershed(np.pad(tv01+w01,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
                                           mask=np.pad(mask,pad_width,mode='wrap'))
             if fillOnlyBackgroundHoles:
                 labeledCpsCenter = self.__labeledCps[tv.shape[0]:tv.shape[0]*2, 
@@ -317,7 +318,7 @@ class ColdPoolField:
                 self.__labeledCps = self.__labeledCps[tv.shape[0]:tv.shape[0]*2, 
                                                       tv.shape[1]:tv.shape[1]*2]
         else:
-            self.__labeledCps = watershed(q01+w01, markers, mask=mask)
+            self.__labeledCps = watershed(tv01+w01, markers, mask=mask)
             if fillOnlyBackgroundHoles:
                 for cp in unique_nonzero(self.__labeledCps, return_counts=False):
                     # Fill possible holes
@@ -577,7 +578,6 @@ class ColdPoolField:
                 ColdPoolField.coldpool_list.append(coldpool) 
                 n += 1
                 
-        
         
         # Evaluate the domain statistics if stats = true
         if stats:

@@ -10,6 +10,7 @@ Created on Mon Jan 10 14:35:39 2022
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.segmentation import find_boundaries
+from scipy.io import savemat
 
 
 # Function to compute virtual temperature
@@ -44,6 +45,11 @@ def scale01(array):
 def invert01(array01):
     array01_inverted = (array01 - np.ones_like(array01)) * (-1)
     return array01_inverted
+
+
+# Function to export a matlab array
+def exportMatlab(filename,array,arrayName="array"):
+    savemat(filename + ".mat", mdict={arrayName: array})
 
 
 # Function to get the index of the minimum within a blob with respect to a selectable field
