@@ -22,7 +22,7 @@ from postprocessing import exportDfs, exportFields
 
 # Timesteps to be analyzed
 start = 610
-end = 630
+end = 624
 
 # Dataset
 simulation = "diurnal4K_200m"   
@@ -54,7 +54,7 @@ dissipationThresh: Min. number of time steps a rain patch is kept (still gets a 
 
 # Setup
 rintThresh = 2          # mm/h
-mergeThresh = 0.5       # overlap for merge
+mergeThresh = 1.0       # overlap for merge
 rainPatchMinSize = 25   # min. no. of pixel
 dissipationThresh = 0   # number of time steps
 periodicDomain = True
@@ -64,7 +64,7 @@ periodicDomain = True
 postprocessingDict = {
     "simulation_name": simulation,
     # Domain statistics over time ---------------------------------------------
-    "domain": True,
+    "domain": False,
     "save_domain": False,
     # Fields ------------------------------------------------------------------
     "labeledCps": True,
@@ -77,8 +77,8 @@ postprocessingDict = {
     "showDynGustFront": True, # in the above fields
     "save_fields": False,
     # Cold pool & family statistics -------------------------------------------
-    "cp": True,
-    "family": True,
+    "cp": False,
+    "family": False,
     "save_statistics": False,
     
     # Export of dataframes ----------------------------------------------------

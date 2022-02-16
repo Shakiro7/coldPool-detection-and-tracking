@@ -247,7 +247,7 @@ class ColdPoolField:
         markers = markers
         rainPatchList = rainPatchList
         rainMarkers = rainMarkers
-        #q01 = scale01(dataloader.getQ())
+        q01 = scale01(dataloader.getQ())
         tv = dataloader.getTv()
         tv01 = scale01(tv)
         w01 = scale01(filters.gaussian(dataloader.getW(), sigma=2.0))
@@ -258,15 +258,15 @@ class ColdPoolField:
         fillOnlyBackgroundHoles = fillOnlyBackgroundHoles
         mergeThresh = mergeThreshold
       
-
+                    
         # # Plot markers over w field
         # markers_masked = np.ma.masked_array(markers,markers==0)
         # w_masked = np.ma.masked_array(filters.gaussian(dataloader.getW(), sigma=2.0),markers!=0)        
         # fig, ax = plt.subplots(figsize=(10,10))
-        # w_im = ax.imshow(w_masked,cmap=plt.cm.Reds)
-        # cbw = plt.colorbar(w_im)
         # markers_im = ax.imshow(markers_masked,cmap=plt.cm.viridis)
-        # cbmarkers = plt.colorbar(markers_im)        
+        # cbmarkers = plt.colorbar(markers_im)
+        # w_im = ax.imshow(w_masked,cmap=plt.cm.Reds)
+        # cbw = plt.colorbar(w_im)        
         # ax.set_title('Markers over w @ timestep ' + str(self.__tstep))
         # cbw.set_label('w [m/s]')
         # cbmarkers.set_label('labeled markers')
@@ -276,10 +276,10 @@ class ColdPoolField:
         # # Plot markers over tv field
         # tv_masked = np.ma.masked_array(tv,markers!=0)        
         # fig, ax = plt.subplots(figsize=(10,10))
-        # tv_im = ax.imshow(tv_masked,cmap=plt.cm.Reds)
-        # cbtv = plt.colorbar(tv_im)
         # markers_im = ax.imshow(markers_masked,cmap=plt.cm.viridis)
-        # cbmarkers = plt.colorbar(markers_im)        
+        # cbmarkers = plt.colorbar(markers_im)
+        # tv_im = ax.imshow(tv_masked,cmap=plt.cm.Reds)
+        # cbtv = plt.colorbar(tv_im)        
         # ax.set_title('Markers over tv @ timestep ' + str(self.__tstep))
         # cbtv.set_label('tv [K]')
         # cbmarkers.set_label('labeled markers')
