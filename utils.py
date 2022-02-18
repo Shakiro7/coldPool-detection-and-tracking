@@ -205,10 +205,17 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,coldPoolList=None,ol
         for oldCpLabel in unique_nonzero(oldCps,return_counts=False):
             # Check if the old cold pool still has active rain
             if oldCpLabel in rain_labels:            
-                # If yes, add this rain patch to the markers array,add the old region to the segmentation 
+                # If yes, add the current marker and the origin one to the markers array,add the old region to the segmentation 
                 # and store patrons (overlapping old cps) if any
+                for i, obj in enumerate(coldPoolList):
+                    if obj.getId() == oldCpLabel:
+                        index_oldCp = i
+                        break                
                 pixel_rain = rainMarkers == oldCpLabel
+                pixel_origin = coldPoolList[index_oldCp].getOrigin()
                 markers[searchCenterOfMass(pixel_rain, rint,periodicDomain=periodicDomain)] = oldCpLabel
+                if oldCps[pixel_origin]==oldCpLabel:
+                    markers[pixel_origin] = np.where(rainMarkers[pixel_origin]==0,oldCpLabel,markers[pixel_origin])
                 segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)
                 rain_overlap = pixel_rain * oldCps
                 unique = unique_nonzero(rain_overlap, return_counts=False)
@@ -285,16 +292,23 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,coldPoolList=None,ol
                     pixel_rain = oldRainMarkers == oldCpLabel
                     pixel_rainMarker = searchCenterOfMass(pixel_rain, oldRint,periodicDomain=periodicDomain)
                 pixel_count_rain = np.count_nonzero(pixel_rain)
+                pixel_origin = coldPoolList[index_oldCp].getOrigin()
                 rain_overlap = pixel_rain * segmentation
                 # If the segmentation still allows 100% of that rain patch (is 1 everywhere): add a rain marker to markers
                 # if it doesn't overlap current rain markers and add the old cold pool region to the segmentation
                 if np.count_nonzero(rain_overlap) == pixel_count_rain:
-                    markers[pixel_rainMarker] = np.where(rainMarkers[pixel_rainMarker]==0,oldCpLabel,markers[pixel_rainMarker])
+                    markers[pixel_rainMarker] = np.where((rainMarkers[pixel_rainMarker]==0)&(oldCps[pixel_rainMarker]==oldCpLabel),
+                                                         oldCpLabel,markers[pixel_rainMarker])
+                    if oldCps[pixel_origin]==oldCpLabel:
+                        markers[pixel_origin] = np.where(rainMarkers[pixel_origin]==0,oldCpLabel,markers[pixel_origin])
                     segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)
                 # If the segmentation still allows at least one pixel of that rain patch: add that rain patch to markers
                 # where it doesn't overlap current rain markers,add the old cold pool region to the segmentation and set dissipating            
                 elif np.count_nonzero(rain_overlap) != 0:
-                    markers[pixel_rainMarker] = np.where(rainMarkers[pixel_rainMarker]==0,oldCpLabel,markers[pixel_rainMarker])
+                    markers[pixel_rainMarker] = np.where((rainMarkers[pixel_rainMarker]==0)&(oldCps[pixel_rainMarker]==oldCpLabel),
+                                                         oldCpLabel,markers[pixel_rainMarker])
+                    if oldCps[pixel_origin]==oldCpLabel:
+                        markers[pixel_origin] = np.where(rainMarkers[pixel_origin]==0,oldCpLabel,markers[pixel_origin])                    
                     segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)
                     for i, obj in enumerate(coldPoolList):
                         if obj.getId() == oldCpLabel:
@@ -311,7 +325,10 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,coldPoolList=None,ol
                             index = i
                             break                  
                     if coldPoolList[index].getState() < dissipationThresh:
-                        markers[pixel_rainMarker] = np.where(rainMarkers[pixel_rainMarker]==0,oldCpLabel,markers[pixel_rainMarker])
+                        markers[pixel_rainMarker] = np.where((rainMarkers[pixel_rainMarker]==0)&(oldCps[pixel_rainMarker]==oldCpLabel),
+                                                             oldCpLabel,markers[pixel_rainMarker])
+                        if oldCps[pixel_origin]==oldCpLabel:
+                            markers[pixel_origin] = np.where(rainMarkers[pixel_origin]==0,oldCpLabel,markers[pixel_origin])                        
                         segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)                    
                         coldPoolList[index].setState()
                         # print("CP " + str(oldCpLabel) + " dissipated, but below threshold. Increased state from " + 

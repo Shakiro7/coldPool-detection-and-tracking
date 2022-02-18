@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from skimage.segmentation import watershed, find_boundaries
 from skimage import filters
 from scipy import ndimage as ndi
+from scipy.stats import zscore
 from skimage.measure import label
 from utils import unique_nonzero, searchBlobMin, checkBlobContact, scale01, invert01
 from tracking import mergeNew
@@ -247,16 +248,19 @@ class ColdPoolField:
         markers = markers
         rainPatchList = rainPatchList
         rainMarkers = rainMarkers
-        q01 = scale01(dataloader.getQ())
-        tv = dataloader.getTv()
-        tv01 = scale01(tv)
-        w01 = scale01(filters.gaussian(dataloader.getW(), sigma=2.0))
+        tv = dataloader.getTv()      
         mask = mask
         labeledCpsOld = oldCps
         periodicBc = periodicDomain
         stats = domainStats
         fillOnlyBackgroundHoles = fillOnlyBackgroundHoles
         mergeThresh = mergeThreshold
+        
+        # Compute the elevation for the watershed filling
+        q01filt = scale01(filters.gaussian(dataloader.getQ(), sigma=1.0))
+        t01filt = scale01(filters.gaussian(dataloader.getT(), sigma=1.0))
+        w01filt = scale01(filters.gaussian(dataloader.getW(), sigma=2.0))
+        elevationMap = t01filt+q01filt**2+w01filt
       
                     
         # # Plot markers over w field
@@ -290,7 +294,7 @@ class ColdPoolField:
         # In case of periodic BC wrap the whole domain and slice after flooding
         if periodicBc:
             pad_width = (tv.shape[0], tv.shape[1])
-            self.__labeledCps = watershed(np.pad(tv01+w01,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
+            self.__labeledCps = watershed(np.pad(elevationMap,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
                                           mask=np.pad(mask,pad_width,mode='wrap'))
             if fillOnlyBackgroundHoles:
                 labeledCpsCenter = self.__labeledCps[tv.shape[0]:tv.shape[0]*2, 
@@ -318,7 +322,7 @@ class ColdPoolField:
                 self.__labeledCps = self.__labeledCps[tv.shape[0]:tv.shape[0]*2, 
                                                       tv.shape[1]:tv.shape[1]*2]
         else:
-            self.__labeledCps = watershed(tv01+w01, markers, mask=mask)
+            self.__labeledCps = watershed(elevationMap, markers, mask=mask)
             if fillOnlyBackgroundHoles:
                 for cp in unique_nonzero(self.__labeledCps, return_counts=False):
                     # Fill possible holes
