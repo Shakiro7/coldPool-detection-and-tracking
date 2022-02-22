@@ -7,8 +7,14 @@ Created on Mon Jan 10 14:11:02 2022
 """
 
 import netCDF4 as nc
-from utils import computeTv
+import numpy as np
 
+
+# Function to compute virtual temperature
+def computeTv(temperature, moisture):
+    t = temperature
+    q = moisture
+    return (np.multiply(t, (1 + q / 0.622) / (1 + q)))
 
 
 class DataLoader:

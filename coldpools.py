@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 from skimage.segmentation import watershed, find_boundaries
 from skimage import filters
 from scipy import ndimage as ndi
-from scipy.stats import zscore
+from scipy.ndimage.measurements import center_of_mass
 from skimage.measure import label
-from utils import unique_nonzero, searchBlobMin, checkBlobContact, scale01, invert01
+from utils import unique_nonzero, searchBlobMin, checkBlobContact, scale01, invert01, searchOrigin
 from tracking import mergeNew
 
 
@@ -261,6 +261,13 @@ class ColdPoolField:
         t01filt = scale01(filters.gaussian(dataloader.getT(), sigma=1.0))
         w01filt = scale01(filters.gaussian(dataloader.getW(), sigma=2.0))
         elevationMap = t01filt+q01filt**2+w01filt
+        
+        # Compute the field for the center of mass evaluation of the origin
+        rintFieldCenter = False
+        if rintFieldCenter:
+            field = filters.gaussian(dataloader.getRint(), sigma=2.0)
+        else:
+            field = invert01(scale01(t01filt+w01filt))     
       
                     
         # # Plot markers over w field
@@ -542,7 +549,9 @@ class ColdPoolField:
                                 if ColdPoolField.coldpool_list[index_parent].getFamily() != family:
                                     family = ColdPoolField.coldpool_list[index_parent].getFamily()
                             break                    
-                    coldpool = ColdPool(identificationNumber=cp,origin=searchBlobMin(pixelBlob=cp_region,field=tv),
+                    rain_region = rainMarkers == cp
+                    origin = searchOrigin(pixelBlob=rain_region,field=field,periodicDomain=periodicBc)
+                    coldpool = ColdPool(identificationNumber=cp,origin=origin,
                                         startTimestep=self.__tstep,area=cp_counts[n],virtualTemp_mean=np.mean(tv[cp_region]),
                                         parents=cp_parents,merged=[],intersecting=checkBlobContact(cp_region, self.__labeledCps),
                                         generation=generation,family=family)                   
@@ -576,7 +585,9 @@ class ColdPoolField:
             for cp in cp_labels:
                 # Create new ColdPool for all cold pools and append them to coldpool_list
                 cp_region = self.__labeledCps == cp
-                coldpool = ColdPool(identificationNumber=cp,origin=searchBlobMin(pixelBlob=cp_region,field=tv),
+                rain_region = rainMarkers == cp
+                origin = searchOrigin(pixelBlob=rain_region,field=field,periodicDomain=periodicBc)
+                coldpool = ColdPool(identificationNumber=cp,origin=origin,
                                     startTimestep=self.__tstep,area=cp_counts[n],virtualTemp_mean=np.mean(tv[cp_region]),
                                     parents=[],merged=[],intersecting=checkBlobContact(cp_region, self.__labeledCps))
                 ColdPoolField.coldpool_list.append(coldpool) 

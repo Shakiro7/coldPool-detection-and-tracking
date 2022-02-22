@@ -6,20 +6,17 @@ Created on Mon Jan 10 14:35:39 2022
 @author: jannik
 """
 
-
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.segmentation import find_boundaries
 from skimage.measure import label
+from skimage import filters
 from scipy.io import savemat
 from scipy.ndimage.measurements import center_of_mass
+from dataloader import DataLoader
 
 
-# Function to compute virtual temperature
-def computeTv(temperature, moisture):
-    t = temperature
-    q = moisture
-    return (np.multiply(t, (1 + q / 0.622) / (1 + q)))
 
 
 # Modified numpy unique function that drops the value 0
@@ -62,24 +59,69 @@ def searchBlobMin(pixelBlob, field):
     return index_minimum
 
 
-# Function to get the index of the center of mass within a blob with respect to a selectable field
+# Function to get the center of masses within blob(s) with respect to a selectable field
 def searchCenterOfMass(pixelBlob, field,periodicDomain=True):
-    labeledBlobs = label(pixelBlob)
     if periodicDomain:
-        for k in range(labeledBlobs.shape[0]):
-            if labeledBlobs[k, 0] > 0 and labeledBlobs[k, -1] > 0:
-                labeledBlobs[labeledBlobs == labeledBlobs[k, -1]] = labeledBlobs[k, 0]
-        for k in range(labeledBlobs.shape[1]):
-            if labeledBlobs[0, k] > 0 and labeledBlobs[-1, k] > 0:
-                labeledBlobs[labeledBlobs == labeledBlobs[-1, k]] = labeledBlobs[0, k]    
-    coordinate_arr = np.zeros_like(pixelBlob,dtype=bool)
-    for blob in unique_nonzero(labeledBlobs):
-        pixel = labeledBlobs == blob
-        overlap = pixel * field
-        index_centerOfMassFloat = center_of_mass(overlap)
-        index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
-        coordinate_arr[index_centerOfMass] = True
+        pad_width = (pixelBlob.shape[0], pixelBlob.shape[1])
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        field_pad = np.pad(field,pad_width,mode='wrap')   
+        coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)
+        for blob in unique_nonzero(labeledBlobs_pad):
+            pixel = labeledBlobs_pad == blob
+            overlap = pixel * field_pad
+            index_centerOfMassFloat = center_of_mass(overlap)
+            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
+            coordinate_arr[index_centerOfMass] = True
+        coordinate_arr = coordinate_arr[pixelBlob.shape[0]:pixelBlob.shape[0]*2, 
+                                        pixelBlob.shape[1]:pixelBlob.shape[1]*2] 
+    else:
+        labeledBlobs = label(pixelBlob)
+        coordinate_arr = np.zeros_like(pixelBlob,dtype=bool)
+        for blob in unique_nonzero(labeledBlobs):
+            pixel = labeledBlobs == blob
+            overlap = pixel * field
+            index_centerOfMassFloat = center_of_mass(overlap)
+            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
+            coordinate_arr[index_centerOfMass] = True
     return coordinate_arr      
+
+
+# Function to get the coordinates of the center of mass within a blob with respect to a selectable field
+def searchOrigin(pixelBlob, field,periodicDomain=True):
+    if periodicDomain:
+        pad_width = (pixelBlob.shape[0], pixelBlob.shape[1])
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        field_pad = np.pad(field,pad_width,mode='wrap')
+        coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)  
+        for blob in unique_nonzero(labeledBlobs_pad):
+            pixel = labeledBlobs_pad == blob
+            overlap = pixel * field_pad
+            index_centerOfMassFloat = center_of_mass(overlap)
+            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
+            coordinate_arr[index_centerOfMass] = True        
+        coordinate_arr = coordinate_arr[pixelBlob.shape[0]:pixelBlob.shape[0]*2, 
+                                        pixelBlob.shape[1]:pixelBlob.shape[1]*2]         
+        coordinates = np.where(coordinate_arr == True)
+        if len(coordinates[0]) > 1:
+            # If origin is not unique, find the candidate with the lowest field value and discard the others
+            coordinate_arrNew = np.zeros_like(coordinate_arr,dtype=bool)
+            maximum = np.ma.MaskedArray.max(np.ma.masked_where(coordinate_arr*field==False,coordinate_arr*field))
+            coordinate_arrNew = np.where(coordinate_arr*field==maximum,True,coordinate_arrNew)
+            coordinates = np.where(coordinate_arrNew == True)
+            # If still not unique raise error
+            if len(coordinates[0]) > 1:          
+                raise ValueError('No unique origin found: ' + str(coordinates))
+            # If origin is unique now, display a warning
+            else:                
+                coordinate_center = (int(coordinates[0]),int(coordinates[1]))
+                warnings.warn("No unique origin found. Selected " + str(coordinate_center) + " based on highest field value.")
+        else:
+            coordinate_center = (int(coordinates[0]),int(coordinates[1]))
+    else:
+        overlap = pixelBlob * field
+        coordinate_centerFloat = center_of_mass(overlap)
+        coordinate_center = tuple([round(x) if isinstance(x, float) else x for x in coordinate_centerFloat])
+    return coordinate_center  
 
 
 # Function to check if a blob is in contact with another blob
@@ -188,11 +230,21 @@ def createUniquePredatorPreyLists(predatorList,preyList):
 
 
 # Function to create markers from new rain events and exisiting cold pools
-def createMarkers(rainfield_list,rainPatchList,segmentation,coldPoolList=None,oldCps=None,dissipationThresh=3,periodicDomain=True):
+def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
+                  coldPoolList=None,oldCps=None,dissipationThresh=3,periodicDomain=True):
+    
+    # Select field for center of mass evaluation: True -> rint, False -> t + w
+    rintFieldCenter = False
     
     dissipationThresh = dissipationThresh
-    rint = rainfield_list[-1].getRainMarkers()
-    
+    dataloader = DataLoader(dataset=dataset, timestep=rainfield_list[-1].getTimestep())    
+    if rintFieldCenter:
+        field = filters.gaussian(dataloader.getRint(), sigma=2.0)
+    else:
+        field = invert01(scale01(scale01(filters.gaussian(dataloader.getT(), sigma=1.0))+
+                                 scale01(filters.gaussian(dataloader.getW(), sigma=2.0))))
+
+        
     # Get current rain field with labeled rain patches
     rainMarkers = rainfield_list[-1].getRainMarkers()
     rain_labels, rain_counts = unique_nonzero(rainMarkers,return_counts=True)
@@ -213,7 +265,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,coldPoolList=None,ol
                         break                
                 pixel_rain = rainMarkers == oldCpLabel
                 pixel_origin = coldPoolList[index_oldCp].getOrigin()
-                markers[searchCenterOfMass(pixel_rain, rint,periodicDomain=periodicDomain)] = oldCpLabel
+                markers[searchCenterOfMass(pixel_rain, field,periodicDomain=periodicDomain)] = oldCpLabel
                 if oldCps[pixel_origin]==oldCpLabel:
                     markers[pixel_origin] = np.where(rainMarkers[pixel_origin]==0,oldCpLabel,markers[pixel_origin])
                 segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)
@@ -252,9 +304,14 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,coldPoolList=None,ol
                                 index = i
                                 break             
                         oldRainMarkers = rainfield_list[index].getRainMarkers()
-                        oldRint = rainfield_list[index].getRint()
+                        dataloaderOld = DataLoader(dataset=dataset, timestep=rainfield_list[index].getTimestep())    
+                        if rintFieldCenter:
+                            oldField = filters.gaussian(dataloaderOld.getRint(), sigma=2.0)
+                        else:
+                            oldField = invert01(scale01(scale01(filters.gaussian(dataloaderOld.getT(), sigma=1.0))+
+                                                        scale01(filters.gaussian(dataloaderOld.getW(), sigma=2.0)))) 
                         pixel_rain = oldRainMarkers == oldCpLabel
-                        pixel_rainMarker = searchCenterOfMass(pixel_rain, oldRint,periodicDomain=periodicDomain)
+                        pixel_rainMarker = searchCenterOfMass(pixel_rain, oldField,periodicDomain=periodicDomain)
                     else:
                         print(str(oldCpLabel) + " has no own rain")
                         pixel_rain = np.zeros_like(rainMarkers,dtype=bool)
@@ -274,9 +331,14 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,coldPoolList=None,ol
                                     index = i
                                     break
                             oldRainMarkers = rainfield_list[index].getRainMarkers()
-                            oldRint = rainfield_list[index].getRint()
+                            dataloaderOld = DataLoader(dataset=dataset, timestep=rainfield_list[index].getTimestep())    
+                            if rintFieldCenter:
+                                oldField = filters.gaussian(dataloaderOld.getRint(), sigma=2.0)
+                            else:
+                                oldField = invert01(scale01(scale01(filters.gaussian(dataloaderOld.getT(), sigma=1.0))+
+                                                            scale01(filters.gaussian(dataloaderOld.getW(), sigma=2.0)))) 
                             pixel_rain = np.where(oldRainMarkers == merged_cp,True,pixel_rain)
-                            pixel_rainMarker = np.where(searchCenterOfMass(oldRainMarkers == merged_cp, oldRint,periodicDomain=periodicDomain),True,pixel_rainMarker)                                                
+                            pixel_rainMarker = np.where(searchCenterOfMass(oldRainMarkers == merged_cp, oldField,periodicDomain=periodicDomain),True,pixel_rainMarker)                                                
                 else:
                     for i, obj in enumerate(rainPatchList):
                         if obj.getId() == oldCpLabel:
@@ -288,9 +350,14 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,coldPoolList=None,ol
                             index = i
                             break             
                     oldRainMarkers = rainfield_list[index].getRainMarkers()
-                    oldRint = rainfield_list[index].getRint()
+                    dataloaderOld = DataLoader(dataset=dataset, timestep=rainfield_list[index].getTimestep())    
+                    if rintFieldCenter:
+                        oldField = filters.gaussian(dataloaderOld.getRint(), sigma=2.0)
+                    else:
+                        oldField = invert01(scale01(scale01(filters.gaussian(dataloaderOld.getT(), sigma=1.0))+
+                                                    scale01(filters.gaussian(dataloaderOld.getW(), sigma=2.0))))                    
                     pixel_rain = oldRainMarkers == oldCpLabel
-                    pixel_rainMarker = searchCenterOfMass(pixel_rain, oldRint,periodicDomain=periodicDomain)
+                    pixel_rainMarker = searchCenterOfMass(pixel_rain, oldField,periodicDomain=periodicDomain)
                 pixel_count_rain = np.count_nonzero(pixel_rain)
                 pixel_origin = coldPoolList[index_oldCp].getOrigin()
                 rain_overlap = pixel_rain * segmentation
@@ -342,7 +409,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,coldPoolList=None,ol
         new_rain_labels = [x for x in rain_labels if x not in unique_nonzero(oldCps)]
         for new_rain in new_rain_labels:
             pixel_new_rain = rainMarkers == new_rain
-            markers[searchCenterOfMass(pixel_new_rain, rint,periodicDomain=periodicDomain)] = new_rain
+            markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain
             # Check if the new rain overlaps with old cold pools. If yes, add them as parents
             new_rain_overlap = pixel_new_rain * oldCps
             unique = unique_nonzero(new_rain_overlap, return_counts=False)        
@@ -359,7 +426,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,coldPoolList=None,ol
         # Loop over rainMarkers (= new rain patches) and add their center of mass to markers
         for new_rain in rain_labels:
             pixel_new_rain = rainMarkers == new_rain
-            markers[searchCenterOfMass(pixel_new_rain, rint,periodicDomain=periodicDomain)] = new_rain      
+            markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain      
         
 
     return markers, segmentation

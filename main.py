@@ -21,11 +21,11 @@ from postprocessing import exportDfs, exportFields
 
 
 # Timesteps to be analyzed
-start = 594
-end = 644
+start = 610
+end = 660
 
 # Dataset
-simulation = "diurnal2K_200m"   
+simulation = "diurnal4K_200m"   
 path = ("/home/jannik/PhD/Programming/gust_front/Romain_data/cp-detection/"+
         simulation+"/"+simulation+"_240x240km2.nc")
 ds = nc.Dataset(path,mode="r")
@@ -66,7 +66,7 @@ dissipationThresh: Min. number of time steps a rain patch is kept (still gets a 
 """
 
 # Setup
-rintThresh = 2          # mm/h
+rintThresh = 1          # mm/h
 mergeThresh = 1.0       # overlap for merge
 rainPatchMinSize = 25   # min. no. of pixel
 dissipationThresh = 3   # number of time steps
@@ -146,6 +146,7 @@ for i in range(end-start):
         markers, segmentation = createMarkers(rainfield_list=rainfield_list,
                                               rainPatchList=RainField.rainpatch_list,
                                               segmentation=segmentation,
+                                              dataset=ds,
                                               dissipationThresh=dissipationThresh,
                                               periodicDomain=periodicDomain)
         
@@ -188,6 +189,7 @@ for i in range(end-start):
                                               oldCps=coldpoolfield_list[i-1].getLabeledCps(),
                                               coldPoolList=ColdPoolField.coldpool_list,
                                               segmentation=segmentation,
+                                              dataset=ds,
                                               dissipationThresh=dissipationThresh,
                                               periodicDomain=periodicDomain)
         
