@@ -15,7 +15,7 @@ import seaborn as sns
 from utils import unique_nonzero
 
 
-
+directory = "/home/jannik/PhD/Programming/project-cp-detection/cp-detection-algorithm_data/"
 
 def plotFields(postprocessingDict,dataloader,coldpoolfield):
 
@@ -32,7 +32,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.set_title('Virtual temperature @ timestep ' + str(dataloader.getTimestep()))
             fig.colorbar(im) 
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_tv.png",bbox_inches='tight')
             plt.show()
             
@@ -44,7 +44,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.set_title('Surface rain intensity @ timestep ' + str(dataloader.getTimestep()))
             fig.colorbar(im) 
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_rint.png",bbox_inches='tight')            
             plt.show()
 
@@ -55,7 +55,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.imshow(np.ma.masked_where(w > (w_mean + 2*w_std), coldpoolfield.getLabeledCps()), cmap=cmap)
             ax.set_title('Labeled CPs @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_labeledCps.png",bbox_inches='tight')
             plt.show()
             
@@ -67,7 +67,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.imshow(np.ma.masked_where(w > (w_mean + 2*w_std), activeCps), cmap=cmap)
             ax.set_title('Labeled CPs without dissipating @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_labeledCpsActive.png",bbox_inches='tight')
             plt.show()
 
@@ -80,7 +80,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.imshow(np.ma.masked_where(w > (w_mean + 2*w_std), stateLabels), cmap=cmap)
             ax.set_title('Labeled CP state @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_stateLabels.png",bbox_inches='tight')
             plt.show()
             
@@ -92,7 +92,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.imshow(np.ma.masked_where(w > (w_mean + 2*w_std), labeledFamilies), cmap=cmap)
             ax.set_title('Labeled families @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_labeledFamilies.png",bbox_inches='tight')
             plt.show()
 
@@ -104,7 +104,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.imshow(np.ma.masked_where(w > (w_mean + 2*w_std), activeFamilies), cmap=cmap)
             ax.set_title('Labeled families without dissipating members @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_labeledFamiliesActive.png",bbox_inches='tight')
             plt.show()
             
@@ -117,7 +117,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.set_title('Virtual temperature @ timestep ' + str(dataloader.getTimestep()))
             fig.colorbar(im) 
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_tv.png",bbox_inches='tight')
             plt.show()
             
@@ -128,7 +128,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.set_title('Surface rain intensity @ timestep ' + str(dataloader.getTimestep()))
             fig.colorbar(im) 
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_rint.png",bbox_inches='tight')
             plt.show()
 
@@ -138,7 +138,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.imshow(coldpoolfield.getLabeledCps(), cmap=cmap)
             ax.set_title('Labeled CPs @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_labeledCps.png",bbox_inches='tight')
             plt.show()
             
@@ -149,7 +149,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.imshow(activeCps, cmap=cmap)
             ax.set_title('Labeled CPs without dissipating @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_labeledCpsActive.png",bbox_inches='tight')
             plt.show()             
 
@@ -162,7 +162,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.imshow(stateLabels, cmap=cmap)
             ax.set_title('Labeled CP state @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_stateLabels.png",bbox_inches='tight')
             plt.show()
             
@@ -173,7 +173,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.imshow(labeledFamilies, cmap=cmap)
             ax.set_title('Labeled families @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_labeledFamilies.png",bbox_inches='tight')
             plt.show()
 
@@ -184,7 +184,7 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
             ax.imshow(activeFamilies, cmap=cmap)
             ax.set_title('Labeled families without dissipating members @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
-                plt.savefig("Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+                plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_labeledFamiliesActive.png",bbox_inches='tight')
             plt.show()
 
@@ -204,7 +204,7 @@ def plotCpStats(postprocessingDict,coldpool_list,rainpatch_list):
         splot = sns.histplot(data=cp_df,x="Max_age",stat="percent", discrete=True)
         splot.set(xlabel="Max. CP age")
         if postprocessingDict["save_statistics"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_histplot_cpMaxAge.png",bbox_inches='tight')
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_histplot_cpMaxAge.png",bbox_inches='tight')
         plt.show()  
 
 
@@ -212,14 +212,14 @@ def plotCpStats(postprocessingDict,coldpool_list,rainpatch_list):
         splot = sns.histplot(data=cp_df,x="Generation",stat="percent", discrete=True)
         splot.set(xlabel="CP generation")
         if postprocessingDict["save_statistics"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_histplot_cpGeneration.png",bbox_inches='tight')
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_histplot_cpGeneration.png",bbox_inches='tight')
         plt.show()                     
 
         fig, ax = plt.subplots()
         splot = sns.histplot(data=cp_df,x="Max_area",stat="percent",log_scale=True)
         splot.set(xlabel="Max. CP area")
         if postprocessingDict["save_statistics"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_histplot_cpMaxAreaLog.png",bbox_inches='tight')
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_histplot_cpMaxAreaLog.png",bbox_inches='tight')
         plt.show()          
 
 
@@ -244,7 +244,7 @@ def plotFamilyStats(postprocessingDict,coldpoolfamily_list,coldpool_list,rainpat
         splot = sns.histplot(data=family_df,x="Max_age",stat="percent", discrete=True)
         splot.set(xlabel="Max. family age")
         if postprocessingDict["save_statistics"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_histplot_familyMaxAge.png",bbox_inches='tight')
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_histplot_familyMaxAge.png",bbox_inches='tight')
         plt.show()         
         
 
@@ -252,15 +252,15 @@ def plotFamilyStats(postprocessingDict,coldpoolfamily_list,coldpool_list,rainpat
         splot = sns.histplot(data=family_df,x="Generations",stat="percent", discrete=True)
         splot.set(xlabel="Family generations")
         if postprocessingDict["save_statistics"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_histplot_familyGenerations.png",bbox_inches='tight')
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_histplot_familyGenerations.png",bbox_inches='tight')
         plt.show() 
 
 
         fig, ax = plt.subplots()
-        splot = sns.histplot(data=family_df,x="No_familyMembers",stat="percent", discrete=True)
+        splot = sns.histplot(data=family_df,x="No_familyMembers",stat="percent", log_scale=True)
         splot.set(xlabel="Family members")
         if postprocessingDict["save_statistics"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_histplot_familyNoFamilyMembers.png",bbox_inches='tight')
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_histplot_familyNoFamilyMembersLog.png",bbox_inches='tight')
         plt.show() 
         
         
@@ -286,7 +286,7 @@ def plotDomainStats(postprocessingDict,domainStatsDict):
         ax.set_ylabel("Domain coverage")
         ax.legend(loc='upper left')
         if postprocessingDict["save_domain"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-domainCoverage-cpFamilyHue.png",
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-domainCoverage-cpFamilyHue.png",
                         bbox_inches='tight')        
         plt.show() 
 
@@ -300,7 +300,7 @@ def plotDomainStats(postprocessingDict,domainStatsDict):
         ax.set_ylabel("Number")
         ax.legend(loc='upper left')
         if postprocessingDict["save_domain"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-number-cpFamilyHue.png",
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-number-cpFamilyHue.png",
                         bbox_inches='tight')        
         plt.show() 
 
@@ -314,7 +314,7 @@ def plotDomainStats(postprocessingDict,domainStatsDict):
         ax.set_ylabel("Domain coverage")
         ax.legend(loc='upper left')
         if postprocessingDict["save_domain"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-domainCoverage-cpStateHue.png",
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-domainCoverage-cpStateHue.png",
                         bbox_inches='tight')        
         plt.show() 
 
@@ -328,7 +328,7 @@ def plotDomainStats(postprocessingDict,domainStatsDict):
         ax.set_ylabel("Number")
         ax.legend(loc='upper left')
         if postprocessingDict["save_domain"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-number-stateHue.png",
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-number-stateHue.png",
                         bbox_inches='tight')        
         plt.show() 
 
@@ -342,7 +342,7 @@ def plotDomainStats(postprocessingDict,domainStatsDict):
         ax.set_ylabel("Number")
         ax.legend(loc='upper left')
         if postprocessingDict["save_domain"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-number-contactHue.png",
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-number-contactHue.png",
                         bbox_inches='tight')        
         plt.show() 
 
@@ -356,7 +356,7 @@ def plotDomainStats(postprocessingDict,domainStatsDict):
         ax.set_ylabel("Number")
         ax.legend(loc='upper left')
         if postprocessingDict["save_domain"]:
-            plt.savefig("Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-number-familiesHue.png",
+            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_stackplot_timestep-number-familiesHue.png",
                         bbox_inches='tight')        
         plt.show() 
 
@@ -483,13 +483,13 @@ def createDomainStatsDf(domainStatsDict):
 def exportDfs(postprocessingDict,domainStats_df=None,cp_df=None,family_df=None):    
     
     if postprocessingDict["export_domainDf"] and domainStats_df is not None:
-        domainStats_df.to_pickle("Dataframes/"+postprocessingDict["simulation_name"]+"_domainStats_df.pkl")
+        domainStats_df.to_pickle(directory+"Dataframes/"+postprocessingDict["simulation_name"]+"_domainStats_df.pkl")
 
     if postprocessingDict["export_cpDf"] and cp_df is not None:
-        cp_df.to_pickle("Dataframes/"+postprocessingDict["simulation_name"]+"_cp_df.pkl")
+        cp_df.to_pickle(directory+"Dataframes/"+postprocessingDict["simulation_name"]+"_cp_df.pkl")
         
     if postprocessingDict["export_familyDf"] and family_df is not None:
-        family_df.to_pickle("Dataframes/"+postprocessingDict["simulation_name"]+"_family_df.pkl")
+        family_df.to_pickle(directory+"Dataframes/"+postprocessingDict["simulation_name"]+"_family_df.pkl")
 
 
 
@@ -499,7 +499,7 @@ def exportFields(postprocessingDict,dataloader,coldpoolfield):
     if postprocessingDict["export_rawDataMl"]:
         binaryLabels = np.where(coldpoolfield.getLabeledCps() != 0, 1, 0)
         stateLabels = np.where((binaryLabels==1) & (coldpoolfield.getLabeledCpsActive() != 0), 2, binaryLabels)
-        np.savez_compressed("Arrays/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+        np.savez_compressed(directory+"Arrays/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_rawDataMl", 
                             rint=dataloader.getRint(), 
                             tb=dataloader.getTb(),
@@ -507,7 +507,7 @@ def exportFields(postprocessingDict,dataloader,coldpoolfield):
                             stateLabels=stateLabels)
 
     if postprocessingDict["export_analysisData"]:
-        np.savez_compressed("Arrays/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
+        np.savez_compressed(directory+"Arrays/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
                             "_analysisData", 
                             labeledCps=coldpoolfield.getLabeledCps(),
                             labeledCpsNonDiss=coldpoolfield.getLabeledCpsActive(),
