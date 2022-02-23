@@ -61,7 +61,8 @@ def searchBlobMin(pixelBlob, field):
 
 # Function to get the center of masses within blob(s) with respect to a selectable field
 def searchCenterOfMass(pixelBlob, field,periodicDomain=True):
-    if periodicDomain:
+    boundary = np.stack((pixelBlob[0,:],pixelBlob[-1,:],pixelBlob[:,0],pixelBlob[:,-1]))
+    if periodicDomain and boundary.any()==True:
         pad_width = (pixelBlob.shape[0], pixelBlob.shape[1])
         labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
         field_pad = np.pad(field,pad_width,mode='wrap')   
@@ -73,7 +74,7 @@ def searchCenterOfMass(pixelBlob, field,periodicDomain=True):
             index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
             coordinate_arr[index_centerOfMass] = True
         coordinate_arr = coordinate_arr[pixelBlob.shape[0]:pixelBlob.shape[0]*2, 
-                                        pixelBlob.shape[1]:pixelBlob.shape[1]*2] 
+                                        pixelBlob.shape[1]:pixelBlob.shape[1]*2]
     else:
         labeledBlobs = label(pixelBlob)
         coordinate_arr = np.zeros_like(pixelBlob,dtype=bool)
@@ -88,7 +89,8 @@ def searchCenterOfMass(pixelBlob, field,periodicDomain=True):
 
 # Function to get the coordinates of the center of mass within a blob with respect to a selectable field
 def searchOrigin(pixelBlob, field,periodicDomain=True):
-    if periodicDomain:
+    boundary = np.stack((pixelBlob[0,:],pixelBlob[-1,:],pixelBlob[:,0],pixelBlob[:,-1]))
+    if periodicDomain and boundary.any()==True:
         pad_width = (pixelBlob.shape[0], pixelBlob.shape[1])
         labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
         field_pad = np.pad(field,pad_width,mode='wrap')
@@ -118,9 +120,30 @@ def searchOrigin(pixelBlob, field,periodicDomain=True):
         else:
             coordinate_center = (int(coordinates[0]),int(coordinates[1]))
     else:
-        overlap = pixelBlob * field
-        coordinate_centerFloat = center_of_mass(overlap)
-        coordinate_center = tuple([round(x) if isinstance(x, float) else x for x in coordinate_centerFloat])
+        labeledBlobs = label(pixelBlob)
+        coordinate_arr = np.zeros_like(labeledBlobs,dtype=bool)  
+        for blob in unique_nonzero(labeledBlobs):
+            pixel = labeledBlobs == blob
+            overlap = pixel * field
+            index_centerOfMassFloat = center_of_mass(overlap)
+            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
+            coordinate_arr[index_centerOfMass] = True               
+        coordinates = np.where(coordinate_arr == True)
+        if len(coordinates[0]) > 1:
+            # If origin is not unique, find the candidate with the lowest field value and discard the others
+            coordinate_arrNew = np.zeros_like(coordinate_arr,dtype=bool)
+            maximum = np.ma.MaskedArray.max(np.ma.masked_where(coordinate_arr*field==False,coordinate_arr*field))
+            coordinate_arrNew = np.where(coordinate_arr*field==maximum,True,coordinate_arrNew)
+            coordinates = np.where(coordinate_arrNew == True)
+            # If still not unique raise error
+            if len(coordinates[0]) > 1:          
+                raise ValueError('No unique origin found: ' + str(coordinates))
+            # If origin is unique now, display a warning
+            else:                
+                coordinate_center = (int(coordinates[0]),int(coordinates[1]))
+                warnings.warn("No unique origin found. Selected " + str(coordinate_center) + " based on highest field value.")
+        else:
+            coordinate_center = (int(coordinates[0]),int(coordinates[1]))
     return coordinate_center  
 
 
@@ -256,7 +279,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
         # Loop over old cold pools and add markers (either active rain or last active rain patch)
         for oldCpLabel in unique_nonzero(oldCps,return_counts=False):
             # Check if the old cold pool still has active rain
-            if oldCpLabel in rain_labels:            
+            if oldCpLabel in rain_labels:
                 # If yes, add the current marker and the origin one to the markers array,add the old region to the segmentation 
                 # and store patrons (overlapping old cps) if any
                 for i, obj in enumerate(coldPoolList):
@@ -403,7 +426,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
                     else:
                         coldPoolList[index].setState()
                         # print("CP " + str(oldCpLabel) + " dissipated and above threshold. Increased state from " + 
-                        #       str(coldPoolList[index].getState()-1) + " to " + str(coldPoolList[index].getState()))                    
+                        #       str(coldPoolList[index].getState()-1) + " to " + str(coldPoolList[index].getState()))
         
         # Loop over remaining rainMarkers (= new rain patches) and add teir center of mass to markers
         new_rain_labels = [x for x in rain_labels if x not in unique_nonzero(oldCps)]
