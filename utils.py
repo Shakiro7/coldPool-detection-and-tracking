@@ -8,11 +8,13 @@ Created on Mon Jan 10 14:35:39 2022
 
 import warnings
 import numpy as np
+import math
 import matplotlib.pyplot as plt
-from skimage.segmentation import find_boundaries
+from skimage.segmentation import find_boundaries, watershed
 from skimage.measure import label
 from skimage import filters
 from scipy.io import savemat
+from scipy import ndimage as ndi
 from scipy.ndimage.measurements import center_of_mass
 from dataloader import DataLoader
 
@@ -59,10 +61,71 @@ def searchBlobMin(pixelBlob, field):
     return index_minimum
 
 
+# Function to return the index of a class object on a sorted list based on its ID
+def findObjIndex(object_list,object_id):
+    ready = False
+    length = len(object_list)
+    end = length-1
+    start = 0
+    counter = 0
+    while not ready:
+        counter += 1
+        if counter == length:
+            warnings.warn("Element " + str(object_id) + " not in list. No index returned. Study results carefully.")
+            return
+        index = start+math.ceil((end-start)/2)
+        if object_list[index].getId() < object_id:
+            start += math.ceil((end-start)/2)
+        elif object_list[index].getId() > object_id:
+            end -= math.ceil((end-start)/2)
+        else:
+            ready = True
+            return index
+
+
 # Function to get the center of masses within blob(s) with respect to a selectable field
 def searchCenterOfMass(pixelBlob, field,periodicDomain=True):
-    boundary = np.stack((pixelBlob[0,:],pixelBlob[-1,:],pixelBlob[:,0],pixelBlob[:,-1]))
-    if periodicDomain and boundary.any()==True:
+    boundary_00 = pixelBlob[0,:]
+    boundary_01 = pixelBlob[-1,:]
+    boundary_10 = pixelBlob[:,0]
+    boundary_11 = pixelBlob[:,-1]
+    
+    if not periodicDomain or (not (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True)):
+        labeledBlobs = label(pixelBlob)
+        coordinate_arr = np.zeros_like(pixelBlob,dtype=bool)
+        for blob in unique_nonzero(labeledBlobs):
+            pixel = labeledBlobs == blob
+            overlap = pixel * field
+            index_centerOfMassFloat = center_of_mass(overlap)
+            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
+            coordinate_arr[index_centerOfMass] = True
+        
+    elif (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True):
+        pad_width = ((pixelBlob.shape[0], pixelBlob.shape[0]),(0,0))
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        field_pad = np.pad(field,pad_width,mode='wrap')   
+        coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)
+        for blob in unique_nonzero(labeledBlobs_pad):
+            pixel = labeledBlobs_pad == blob
+            overlap = pixel * field_pad
+            index_centerOfMassFloat = center_of_mass(overlap)
+            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
+            coordinate_arr[index_centerOfMass] = True
+        coordinate_arr = coordinate_arr[pixelBlob.shape[0]:pixelBlob.shape[0]*2,:] 
+        
+    elif not (boundary_00.any()==True and boundary_01.any()==True) and (boundary_10.any()==True and boundary_11.any()==True):
+        pad_width = ((0,0),(pixelBlob.shape[1], pixelBlob.shape[1]))
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        field_pad = np.pad(field,pad_width,mode='wrap')   
+        coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)
+        for blob in unique_nonzero(labeledBlobs_pad):
+            pixel = labeledBlobs_pad == blob
+            overlap = pixel * field_pad
+            index_centerOfMassFloat = center_of_mass(overlap)
+            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
+            coordinate_arr[index_centerOfMass] = True
+        coordinate_arr = coordinate_arr[:,pixelBlob.shape[1]:pixelBlob.shape[1]*2]  
+    else:
         pad_width = (pixelBlob.shape[0], pixelBlob.shape[1])
         labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
         field_pad = np.pad(field,pad_width,mode='wrap')   
@@ -74,23 +137,103 @@ def searchCenterOfMass(pixelBlob, field,periodicDomain=True):
             index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
             coordinate_arr[index_centerOfMass] = True
         coordinate_arr = coordinate_arr[pixelBlob.shape[0]:pixelBlob.shape[0]*2, 
-                                        pixelBlob.shape[1]:pixelBlob.shape[1]*2]
-    else:
-        labeledBlobs = label(pixelBlob)
-        coordinate_arr = np.zeros_like(pixelBlob,dtype=bool)
-        for blob in unique_nonzero(labeledBlobs):
-            pixel = labeledBlobs == blob
-            overlap = pixel * field
-            index_centerOfMassFloat = center_of_mass(overlap)
-            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
-            coordinate_arr[index_centerOfMass] = True
+                                        pixelBlob.shape[1]:pixelBlob.shape[1]*2]        
+        
     return coordinate_arr      
 
 
 # Function to get the coordinates of the center of mass within a blob with respect to a selectable field
 def searchOrigin(pixelBlob, field,periodicDomain=True):
-    boundary = np.stack((pixelBlob[0,:],pixelBlob[-1,:],pixelBlob[:,0],pixelBlob[:,-1]))
-    if periodicDomain and boundary.any()==True:
+    boundary_00 = pixelBlob[0,:]
+    boundary_01 = pixelBlob[-1,:]
+    boundary_10 = pixelBlob[:,0]
+    boundary_11 = pixelBlob[:,-1]
+    
+    if not periodicDomain or (not (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True)):
+        labeledBlobs = label(pixelBlob)
+        coordinate_arr = np.zeros_like(labeledBlobs,dtype=bool)  
+        for blob in unique_nonzero(labeledBlobs):
+            pixel = labeledBlobs == blob
+            overlap = pixel * field
+            index_centerOfMassFloat = center_of_mass(overlap)
+            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
+            coordinate_arr[index_centerOfMass] = True               
+        coordinates = np.where(coordinate_arr == True)
+        if len(coordinates[0]) > 1:
+            # If origin is not unique, find the candidate with the lowest field value and discard the others
+            coordinate_arrNew = np.zeros_like(coordinate_arr,dtype=bool)
+            maximum = np.ma.MaskedArray.max(np.ma.masked_where(coordinate_arr*field==False,coordinate_arr*field))
+            coordinate_arrNew = np.where(coordinate_arr*field==maximum,True,coordinate_arrNew)
+            coordinates = np.where(coordinate_arrNew == True)
+            # If still not unique raise error
+            if len(coordinates[0]) > 1:          
+                raise ValueError('No unique origin found: ' + str(coordinates))
+            # If origin is unique now, display a warning
+            else:                
+                coordinate_center = (int(coordinates[0]),int(coordinates[1]))
+                warnings.warn("No unique origin found. Selected " + str(coordinate_center) + " based on highest field value.")
+        else:
+            coordinate_center = (int(coordinates[0]),int(coordinates[1]))        
+        
+    elif (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True):        
+        pad_width = ((pixelBlob.shape[0], pixelBlob.shape[0]),(0,0))
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        field_pad = np.pad(field,pad_width,mode='wrap')
+        coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)  
+        for blob in unique_nonzero(labeledBlobs_pad):
+            pixel = labeledBlobs_pad == blob
+            overlap = pixel * field_pad
+            index_centerOfMassFloat = center_of_mass(overlap)
+            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
+            coordinate_arr[index_centerOfMass] = True        
+        coordinate_arr = coordinate_arr[pixelBlob.shape[0]:pixelBlob.shape[0]*2,:]         
+        coordinates = np.where(coordinate_arr == True)
+        if len(coordinates[0]) > 1:
+            # If origin is not unique, find the candidate with the lowest field value and discard the others
+            coordinate_arrNew = np.zeros_like(coordinate_arr,dtype=bool)
+            maximum = np.ma.MaskedArray.max(np.ma.masked_where(coordinate_arr*field==False,coordinate_arr*field))
+            coordinate_arrNew = np.where(coordinate_arr*field==maximum,True,coordinate_arrNew)
+            coordinates = np.where(coordinate_arrNew == True)
+            # If still not unique raise error
+            if len(coordinates[0]) > 1:          
+                raise ValueError('No unique origin found: ' + str(coordinates))
+            # If origin is unique now, display a warning
+            else:                
+                coordinate_center = (int(coordinates[0]),int(coordinates[1]))
+                warnings.warn("No unique origin found. Selected " + str(coordinate_center) + " based on highest field value.")
+        else:
+            coordinate_center = (int(coordinates[0]),int(coordinates[1]))        
+        
+    elif not (boundary_00.any()==True and boundary_01.any()==True) and (boundary_10.any()==True and boundary_11.any()==True):        
+        pad_width = ((0,0),(pixelBlob.shape[1], pixelBlob.shape[1]))
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        field_pad = np.pad(field,pad_width,mode='wrap')
+        coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)  
+        for blob in unique_nonzero(labeledBlobs_pad):
+            pixel = labeledBlobs_pad == blob
+            overlap = pixel * field_pad
+            index_centerOfMassFloat = center_of_mass(overlap)
+            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
+            coordinate_arr[index_centerOfMass] = True        
+        coordinate_arr = coordinate_arr[:,pixelBlob.shape[1]:pixelBlob.shape[1]*2]          
+        coordinates = np.where(coordinate_arr == True)
+        if len(coordinates[0]) > 1:
+            # If origin is not unique, find the candidate with the lowest field value and discard the others
+            coordinate_arrNew = np.zeros_like(coordinate_arr,dtype=bool)
+            maximum = np.ma.MaskedArray.max(np.ma.masked_where(coordinate_arr*field==False,coordinate_arr*field))
+            coordinate_arrNew = np.where(coordinate_arr*field==maximum,True,coordinate_arrNew)
+            coordinates = np.where(coordinate_arrNew == True)
+            # If still not unique raise error
+            if len(coordinates[0]) > 1:          
+                raise ValueError('No unique origin found: ' + str(coordinates))
+            # If origin is unique now, display a warning
+            else:                
+                coordinate_center = (int(coordinates[0]),int(coordinates[1]))
+                warnings.warn("No unique origin found. Selected " + str(coordinate_center) + " based on highest field value.")
+        else:
+            coordinate_center = (int(coordinates[0]),int(coordinates[1]))        
+        
+    else:        
         pad_width = (pixelBlob.shape[0], pixelBlob.shape[1])
         labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
         field_pad = np.pad(field,pad_width,mode='wrap')
@@ -119,31 +262,7 @@ def searchOrigin(pixelBlob, field,periodicDomain=True):
                 warnings.warn("No unique origin found. Selected " + str(coordinate_center) + " based on highest field value.")
         else:
             coordinate_center = (int(coordinates[0]),int(coordinates[1]))
-    else:
-        labeledBlobs = label(pixelBlob)
-        coordinate_arr = np.zeros_like(labeledBlobs,dtype=bool)  
-        for blob in unique_nonzero(labeledBlobs):
-            pixel = labeledBlobs == blob
-            overlap = pixel * field
-            index_centerOfMassFloat = center_of_mass(overlap)
-            index_centerOfMass = tuple([round(x) if isinstance(x, float) else x for x in index_centerOfMassFloat])
-            coordinate_arr[index_centerOfMass] = True               
-        coordinates = np.where(coordinate_arr == True)
-        if len(coordinates[0]) > 1:
-            # If origin is not unique, find the candidate with the lowest field value and discard the others
-            coordinate_arrNew = np.zeros_like(coordinate_arr,dtype=bool)
-            maximum = np.ma.MaskedArray.max(np.ma.masked_where(coordinate_arr*field==False,coordinate_arr*field))
-            coordinate_arrNew = np.where(coordinate_arr*field==maximum,True,coordinate_arrNew)
-            coordinates = np.where(coordinate_arrNew == True)
-            # If still not unique raise error
-            if len(coordinates[0]) > 1:          
-                raise ValueError('No unique origin found: ' + str(coordinates))
-            # If origin is unique now, display a warning
-            else:                
-                coordinate_center = (int(coordinates[0]),int(coordinates[1]))
-                warnings.warn("No unique origin found. Selected " + str(coordinate_center) + " based on highest field value.")
-        else:
-            coordinate_center = (int(coordinates[0]),int(coordinates[1]))
+
     return coordinate_center  
 
 
@@ -251,6 +370,120 @@ def createUniquePredatorPreyLists(predatorList,preyList):
     return predator_new, prey_new, predator_new+prey
 
 
+# Function to flood a masked elevation map from labeled markers and fill potential holes
+def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackgroundHoles=False):
+    boundary_00 = mask[0,:]
+    boundary_01 = mask[-1,:]
+    boundary_10 = mask[:,0]
+    boundary_11 = mask[:,-1]
+    
+    if not periodicDomain or (not (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True)):
+        labeledCps = watershed(elevationMap, markers, mask=mask)
+        if fillOnlyBackgroundHoles:
+            for cp in unique_nonzero(labeledCps):
+                # Fill possible holes
+                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                if not np.array_equal(filled_cp, (labeledCps == cp)):
+                    filled_cp_zeros = (filled_cp == True) & (labeledCps == 0)
+                    fill_blobs = filled_cp_zeros & (labeledCps != cp)
+                    labeled_fill_blobs = label(fill_blobs)
+                    for blob in unique_nonzero(labeled_fill_blobs):
+                        boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                        boundary_blob = boundary_blob_bool * labeledCps
+                        if all(unique_nonzero(boundary_blob)==cp):
+                            labeledCps[labeled_fill_blobs==blob] = cp
+        else:
+            for cp in unique_nonzero(labeledCps):
+                # Fill possible holes in the cp
+                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                labeledCps = np.where(filled_cp, cp, labeledCps)
+
+    elif (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True):
+        pad_width = ((mask.shape[0], mask.shape[0]),(0,0))
+        labeledCps = watershed(np.pad(elevationMap,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
+                               mask=np.pad(mask,pad_width,mode='wrap'))
+        if fillOnlyBackgroundHoles:
+            labeledCpsCenter = labeledCps[mask.shape[0]:mask.shape[0]*2,:] 
+            for cp in unique_nonzero(labeledCps):
+                # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
+                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                filled_cp = filled_cp[mask.shape[0]:mask.shape[0]*2,:] 
+                if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                    filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                    fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                    labeled_fill_blobs = label(fill_blobs)
+                    for blob in unique_nonzero(labeled_fill_blobs):
+                        boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                        boundary_blob = boundary_blob_bool * labeledCpsCenter
+                        if all(unique_nonzero(boundary_blob)==cp):
+                            labeledCpsCenter[labeled_fill_blobs==blob] = cp
+            labeledCps = labeledCpsCenter
+        else:
+            for cp in unique_nonzero(labeledCps):
+                # Fill possible holes in the cp
+                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                labeledCps = np.where(filled_cp, cp, labeledCps)
+            labeledCps = labeledCps[mask.shape[0]:mask.shape[0]*2,:] 
+
+    elif not (boundary_00.any()==True and boundary_01.any()==True) and (boundary_10.any()==True and boundary_11.any()==True):
+        pad_width = ((0,0),(mask.shape[1], mask.shape[1]))
+        labeledCps = watershed(np.pad(elevationMap,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
+                               mask=np.pad(mask,pad_width,mode='wrap'))
+        if fillOnlyBackgroundHoles:
+            labeledCpsCenter = labeledCps[:,mask.shape[1]:mask.shape[1]*2]  
+            for cp in unique_nonzero(labeledCps):
+                # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
+                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                filled_cp = filled_cp[:,mask.shape[1]:mask.shape[1]*2] 
+                if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                    filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                    fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                    labeled_fill_blobs = label(fill_blobs)
+                    for blob in unique_nonzero(labeled_fill_blobs):
+                        boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                        boundary_blob = boundary_blob_bool * labeledCpsCenter
+                        if all(unique_nonzero(boundary_blob)==cp):
+                            labeledCpsCenter[labeled_fill_blobs==blob] = cp
+            labeledCps = labeledCpsCenter
+        else:
+            for cp in unique_nonzero(labeledCps):
+                # Fill possible holes in the cp
+                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                labeledCps = np.where(filled_cp, cp, labeledCps)
+            labeledCps = labeledCps[:,mask.shape[1]:mask.shape[1]*2] 
+        
+    else:
+        pad_width = (mask.shape[0], mask.shape[1])
+        labeledCps = watershed(np.pad(elevationMap,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
+                               mask=np.pad(mask,pad_width,mode='wrap'))
+        if fillOnlyBackgroundHoles:
+            labeledCpsCenter = labeledCps[mask.shape[0]:mask.shape[0]*2, 
+                                          mask.shape[1]:mask.shape[1]*2]
+            for cp in unique_nonzero(labeledCps):
+                # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
+                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                filled_cp = filled_cp[mask.shape[0]:mask.shape[0]*2, 
+                                      mask.shape[1]:mask.shape[1]*2]
+                if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                    filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                    fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                    labeled_fill_blobs = label(fill_blobs)
+                    for blob in unique_nonzero(labeled_fill_blobs):
+                        boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                        boundary_blob = boundary_blob_bool * labeledCpsCenter
+                        if all(unique_nonzero(boundary_blob)==cp):
+                            labeledCpsCenter[labeled_fill_blobs==blob] = cp
+            labeledCps = labeledCpsCenter
+        else:
+            for cp in unique_nonzero(labeledCps):
+                # Fill possible holes in the cp
+                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                labeledCps = np.where(filled_cp, cp, labeledCps)
+            labeledCps = labeledCps[mask.shape[0]:mask.shape[0]*2, 
+                                    mask.shape[1]:mask.shape[1]*2]
+
+    return labeledCps            
+
 
 # Function to create markers from new rain events and exisiting cold pools
 def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
@@ -282,10 +515,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
             if oldCpLabel in rain_labels:
                 # If yes, add the current marker and the origin one to the markers array,add the old region to the segmentation 
                 # and store patrons (overlapping old cps) if any
-                for i, obj in enumerate(coldPoolList):
-                    if obj.getId() == oldCpLabel:
-                        index_oldCp = i
-                        break                
+                index_oldCp = findObjIndex(coldPoolList,oldCpLabel)            
                 pixel_rain = rainMarkers == oldCpLabel
                 pixel_origin = coldPoolList[index_oldCp].getOrigin()
                 markers[searchCenterOfMass(pixel_rain, field,periodicDomain=periodicDomain)] = oldCpLabel
@@ -299,28 +529,19 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
                     unique = np.delete(unique, itemindex)
                 if len(unique) > 0:
                     # Find the index of the rain patch
-                    for i, obj in enumerate(rainPatchList):
-                        if obj.getId() == oldCpLabel:
-                            index = i
-                            break                
+                    index = findObjIndex(rainPatchList,oldCpLabel)               
                     for patron in unique:
                         if patron not in rainPatchList[index].getPatrons():
                             rainPatchList[index].setPatrons(patron)
             else:
                 # If no, get the last rain patch of that cold pool and check if the segmentation still allows it
                 # First find the old cold pool and check if it merged
-                for i, obj in enumerate(coldPoolList):
-                    if obj.getId() == oldCpLabel:
-                        index_oldCp = i
-                        break
+                index_oldCp = findObjIndex(coldPoolList,oldCpLabel)
                 if len(coldPoolList[index_oldCp].getMerged()) > 0:
                     # Check if the merged CP already had own rain. If not, take the last rain of the contributors
                     if oldCpLabel in [obj.getId() for obj in rainPatchList]:
                         print(str(oldCpLabel) + " has own rain")
-                        for i, obj in enumerate(rainPatchList):
-                            if obj.getId() == oldCpLabel:
-                                index = i
-                                break
+                        index = findObjIndex(rainPatchList,oldCpLabel) 
                         lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
                         for i, obj in enumerate(rainfield_list):
                             if obj.getTimestep() == lastTimestep:
@@ -344,10 +565,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
                         print(root_list)
                         root_list = list(set(root_list))
                         for merged_cp in root_list:
-                            for i, obj in enumerate(rainPatchList):
-                                if obj.getId() == merged_cp:
-                                    index = i
-                                    break
+                            index = findObjIndex(rainPatchList,merged_cp) 
                             lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
                             for i, obj in enumerate(rainfield_list):
                                 if obj.getTimestep() == lastTimestep:
@@ -363,10 +581,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
                             pixel_rain = np.where(oldRainMarkers == merged_cp,True,pixel_rain)
                             pixel_rainMarker = np.where(searchCenterOfMass(oldRainMarkers == merged_cp, oldField,periodicDomain=periodicDomain),True,pixel_rainMarker)                                                
                 else:
-                    for i, obj in enumerate(rainPatchList):
-                        if obj.getId() == oldCpLabel:
-                            index = i
-                            break
+                    index = findObjIndex(rainPatchList,oldCpLabel) 
                     lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
                     for i, obj in enumerate(rainfield_list):
                         if obj.getTimestep() == lastTimestep:
@@ -400,20 +615,14 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
                     if oldCps[pixel_origin]==oldCpLabel:
                         markers[pixel_origin] = np.where(rainMarkers[pixel_origin]==0,oldCpLabel,markers[pixel_origin])                    
                     segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)
-                    for i, obj in enumerate(coldPoolList):
-                        if obj.getId() == oldCpLabel:
-                            index = i
-                            break                  
+                    index = findObjIndex(coldPoolList,oldCpLabel)                
                     coldPoolList[index].setState()
                     # print("CP " + str(oldCpLabel) + " partly dissipated. Increased state from " + 
                     #       str(coldPoolList[index].getState()-1) + " to " + str(coldPoolList[index].getState()))
                 # If the segmentation does not allow it in the whole rain patch: set dissipating and add the rain patch
                 # and its segmentation only if the dissipation threshold is not reached yet
                 else:
-                    for i, obj in enumerate(coldPoolList):
-                        if obj.getId() == oldCpLabel:
-                            index = i
-                            break                  
+                    index = findObjIndex(coldPoolList,oldCpLabel)                  
                     if coldPoolList[index].getState() < dissipationThresh:
                         markers[pixel_rainMarker] = np.where((rainMarkers[pixel_rainMarker]==0)&(oldCps[pixel_rainMarker]==oldCpLabel),
                                                              oldCpLabel,markers[pixel_rainMarker])
@@ -438,10 +647,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
             unique = unique_nonzero(new_rain_overlap, return_counts=False)        
             if len(unique) > 0:
                 # Find the index of the rain patch
-                for i, obj in enumerate(rainPatchList):
-                    if obj.getId() == new_rain:
-                        index = i
-                        break                
+                index = findObjIndex(rainPatchList,new_rain)               
                 for parent in unique:
                     if parent not in rainPatchList[index].getParents():
                         rainPatchList[index].setParents(parent)

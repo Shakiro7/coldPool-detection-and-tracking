@@ -13,7 +13,8 @@ from skimage import filters
 from scipy import ndimage as ndi
 from scipy.ndimage.measurements import center_of_mass
 from skimage.measure import label
-from utils import unique_nonzero, searchBlobMin, checkBlobContact, scale01, invert01, searchOrigin
+from utils import unique_nonzero, searchBlobMin, checkBlobContact, scale01, invert01, searchOrigin, findObjIndex
+from utils import createLabeledCps
 from tracking import mergeNew
 
 
@@ -297,58 +298,9 @@ class ColdPoolField:
         # plt.savefig("Plots/"+str(self.__tstep)+"_markersOverTv.png",bbox_inches='tight')
         # plt.show()
         
-        # Fill the elevation map (here virtualTemp) at markers and mask it
-        # In case of periodic BC wrap the whole domain and slice after flooding
-        if periodicBc:
-            pad_width = (tv.shape[0], tv.shape[1])
-            self.__labeledCps = watershed(np.pad(elevationMap,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
-                                          mask=np.pad(mask,pad_width,mode='wrap'))
-            if fillOnlyBackgroundHoles:
-                labeledCpsCenter = self.__labeledCps[tv.shape[0]:tv.shape[0]*2, 
-                                                     tv.shape[1]:tv.shape[1]*2]
-                for cp in unique_nonzero(self.__labeledCps, return_counts=False):
-                    # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
-                    filled_cp = ndi.binary_fill_holes(self.__labeledCps == cp)
-                    filled_cp = filled_cp[tv.shape[0]:tv.shape[0]*2, 
-                                          tv.shape[1]:tv.shape[1]*2]
-                    if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
-                        filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
-                        fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                        labeled_fill_blobs = label(fill_blobs)
-                        for blob in unique_nonzero(labeled_fill_blobs):
-                            boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
-                            boundary_blob = boundary_blob_bool * labeledCpsCenter
-                            if all(unique_nonzero(boundary_blob)==cp):
-                                labeledCpsCenter[labeled_fill_blobs==blob] = cp
-                self.__labeledCps = labeledCpsCenter
-            else:
-                for cp in unique_nonzero(self.__labeledCps, return_counts=False):
-                    # Fill possible holes in the cp
-                    filled_cp = ndi.binary_fill_holes(self.__labeledCps == cp)
-                    self.__labeledCps = np.where(filled_cp, cp, self.__labeledCps)
-                self.__labeledCps = self.__labeledCps[tv.shape[0]:tv.shape[0]*2, 
-                                                      tv.shape[1]:tv.shape[1]*2]
-        else:
-            self.__labeledCps = watershed(elevationMap, markers, mask=mask)
-            if fillOnlyBackgroundHoles:
-                for cp in unique_nonzero(self.__labeledCps, return_counts=False):
-                    # Fill possible holes
-                    filled_cp = ndi.binary_fill_holes(self.__labeledCps == cp)
-                    if not np.array_equal(filled_cp, (self.__labeledCps == cp)):
-                        filled_cp_zeros = (filled_cp == True) & (self.__labeledCps == 0)
-                        fill_blobs = filled_cp_zeros & (self.__labeledCps != cp)
-                        labeled_fill_blobs = label(fill_blobs)
-                        for blob in unique_nonzero(labeled_fill_blobs):
-                            boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
-                            boundary_blob = boundary_blob_bool * self.__labeledCps
-                            if all(unique_nonzero(boundary_blob)==cp):
-                                self.__labeledCps[labeled_fill_blobs==blob] = cp
-            else:
-                for cp in unique_nonzero(self.__labeledCps, return_counts=False):
-                    # Fill possible holes in the cp
-                    filled_cp = ndi.binary_fill_holes(self.__labeledCps == cp)
-                    self.__labeledCps = np.where(filled_cp, cp, self.__labeledCps)
-        
+        # Create the labeled cold pool field by filling the elevation map at markers and masking it
+        self.__labeledCps = createLabeledCps(markers=markers, elevationMap=elevationMap, mask=mask,
+                                             periodicDomain=periodicBc,fillOnlyBackgroundHoles=False)       
 
         # Merge cold pools based on previous ColdPoolField
         if labeledCpsOld is not None:
@@ -406,10 +358,7 @@ class ColdPoolField:
                         merge = True
                     else:
                         merge = False
-                    for i, obj in enumerate(ColdPoolField.coldpool_list):
-                        if obj.getId() == cp:
-                            index_cp = i
-                            break
+                    index_cp = findObjIndex(ColdPoolField.coldpool_list,cp)  
                     if not merge:
                         ColdPoolField.coldpool_list[index_cp].setAge()
                         if cp_counts[n] > ColdPoolField.coldpool_list[index_cp].getArea():
@@ -459,11 +408,8 @@ class ColdPoolField:
                                     parent_list = rainPatchList[index_child].getParents()
                                     indexParents_list = []
                                     for parent in parent_list:
-                                        for j, obj1 in enumerate(ColdPoolField.coldpool_list):
-                                            if obj1.getId() == parent:
-                                                index_parent = j
-                                                indexParents_list.append(index_parent)
-                                                break
+                                        index_parent = findObjIndex(ColdPoolField.coldpool_list,parent)
+                                        indexParents_list.append(index_parent)
                                     parentFamilies_list = []
                                     for indexParent in indexParents_list:
                                         parentFamilies_list.append(ColdPoolField.coldpool_list[indexParent].getFamily())
@@ -540,10 +486,7 @@ class ColdPoolField:
                             cp_parents = rainPatchList[index_rain].getParents().copy()
                             # Check the generation of the parents and assign their max. generation + 1 to the cp
                             for parent in cp_parents:
-                                for k, obj1 in enumerate(ColdPoolField.coldpool_list):
-                                    if obj1.getId() == parent:
-                                        index_parent = k
-                                        break
+                                index_parent = findObjIndex(ColdPoolField.coldpool_list,parent)
                                 if ColdPoolField.coldpool_list[index_parent].getGeneration() >= generation:
                                     generation = ColdPoolField.coldpool_list[index_parent].getGeneration() + 1
                                 if ColdPoolField.coldpool_list[index_parent].getFamily() != family:
@@ -555,7 +498,10 @@ class ColdPoolField:
                                         startTimestep=self.__tstep,area=cp_counts[n],virtualTemp_mean=np.mean(tv[cp_region]),
                                         parents=cp_parents,merged=[],intersecting=checkBlobContact(cp_region, self.__labeledCps),
                                         generation=generation,family=family)                   
-                    ColdPoolField.coldpool_list.append(coldpool)                     
+                    ColdPoolField.coldpool_list.append(coldpool)
+                    # Check if the newly appended ColdPool breaks the sortin and if yes, sort again
+                    if coldpool.getId() < ColdPoolField.coldpool_list[-2].getId():
+                        ColdPoolField.coldpool_list = sorted(ColdPoolField.coldpool_list, key=lambda x: x.getId(), reverse=False)
 
                 n += 1
                 
@@ -611,10 +557,7 @@ class ColdPoolField:
             n = 0
             # Loop over current cold pool field and evaluate the statistics
             for cp in cp_labels:
-                for i, obj in enumerate(ColdPoolField.coldpool_list):
-                    if obj.getId() == cp:
-                        index = i
-                        break
+                index = findObjIndex(ColdPoolField.coldpool_list,cp)
                 if ColdPoolField.coldpool_list[index].getFamily() is None:
                     coverageCpNotInFamily += cp_counts[n]
                     noCpNotInFamily += 1
@@ -681,10 +624,7 @@ class ColdPoolField:
         activeCps = self.__labeledCps.copy()
         for cp in unique_nonzero(self.__labeledCps):
             # Find the old cold pool and save its index
-            for k, obj in enumerate(ColdPoolField.coldpool_list):
-                if obj.getId() == cp:
-                    index = k
-                    break
+            index = findObjIndex(ColdPoolField.coldpool_list,cp)
             state = ColdPoolField.coldpool_list[index].getState()
             if state != 0:
                 activeCps = np.where(activeCps == cp, 0, activeCps)
@@ -695,10 +635,7 @@ class ColdPoolField:
         labeledFamilies = self.__labeledCps.copy()
         for cp in unique_nonzero(self.__labeledCps):
             # Find the old cold pool and save its index
-            for k, obj in enumerate(ColdPoolField.coldpool_list):
-                if obj.getId() == cp:
-                    index = k
-                    break
+            index = findObjIndex(ColdPoolField.coldpool_list,cp)
             family = ColdPoolField.coldpool_list[index].getFamily()
             if family is not None:
                 labeledFamilies = np.where(self.__labeledCps == cp, family, labeledFamilies)
@@ -711,10 +648,7 @@ class ColdPoolField:
         labeledFamiliesActive = self.__labeledCps.copy()
         for cp in unique_nonzero(self.__labeledCps):
             # Find the old cold pool and save its index
-            for k, obj in enumerate(ColdPoolField.coldpool_list):
-                if obj.getId() == cp:
-                    index = k
-                    break
+            index = findObjIndex(ColdPoolField.coldpool_list,cp)
             family = ColdPoolField.coldpool_list[index].getFamily()
             state = ColdPoolField.coldpool_list[index].getState()
             if (family is not None) and (state == 0):

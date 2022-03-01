@@ -11,7 +11,7 @@ from scipy import ndimage as ndi
 from skimage import filters
 from skimage.measure import label
 from tracking import track
-from utils import unique_nonzero
+from utils import unique_nonzero, findObjIndex
 
 
 
@@ -171,11 +171,7 @@ class RainField:
             for rain in rain_labels:
                 if any(obj.getId() == rain for obj in RainField.rainpatch_list):
                     # Only modify existing RainPatch
-                    index = -1
-                    for i, obj in enumerate(RainField.rainpatch_list):
-                        if obj.getId() == rain:
-                            index = i
-                            break
+                    index = findObjIndex(RainField.rainpatch_list,rain)
                     RainField.rainpatch_list[index].setAge()
                     if rain_counts[n] > RainField.rainpatch_list[index].getArea():
                         RainField.rainpatch_list[index].setArea(rain_counts[n])                    

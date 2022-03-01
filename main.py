@@ -7,6 +7,8 @@ Created on Mon Jan 10 14:09:41 2022
 """
 
 import numpy as np
+import copy
+from datetime import datetime
 import netCDF4 as nc
 import matplotlib.pyplot as plt
 from dataloader import DataLoader
@@ -22,7 +24,7 @@ from postprocessing import exportDfs, exportFields
 
 # Timesteps to be analyzed
 start = 610
-end = 660
+end = 615
 
 # Dataset
 simulation = "diurnal4K_200m"   
@@ -66,7 +68,7 @@ dissipationThresh: Min. number of time steps a rain patch is kept (still gets a 
 """
 
 # Setup
-rintThresh = 1          # mm/h
+rintThresh = 2          # mm/h
 mergeThresh = 1.0       # overlap for merge
 rainPatchMinSize = 25   # min. no. of pixel
 dissipationThresh = 3   # number of time steps
@@ -78,7 +80,7 @@ postprocessingDict = {
     "simulation_name": simulation,
     # Domain statistics over time ---------------------------------------------
     "domain": True,
-    "save_domain": True,
+    "save_domain": False,
     # Fields ------------------------------------------------------------------
     "labeledCps": True,
     "labeledCpsNonDiss": False,
@@ -88,11 +90,11 @@ postprocessingDict = {
     "tv": False,
     "rint": False,
     "showDynGustFront": True, # in the above fields
-    "save_fields": True,
+    "save_fields": False,
     # Cold pool & family statistics -------------------------------------------
     "cp": True,
     "family": True,
-    "save_statistics": True,
+    "save_statistics": False,
     
     # Export of dataframes ----------------------------------------------------
     "export_domainDf": False, # domain needs to be True as well
@@ -112,12 +114,12 @@ postprocessingDict = {
 
 
 
+# Store and print the starting time
+tstart = datetime.now()
+print("Start time: " + str(tstart))
 
-
-
-# Create lists to store RainFields and ColdPoolFields
+# Create list to store RainFields
 rainfield_list = []
-coldpoolfield_list = []
 
 for i in range(end-start):
                     
@@ -161,14 +163,14 @@ for i in range(end-start):
                                       domainStats=postprocessingDict["domain"],
                                       fillOnlyBackgroundHoles=False,
                                       mergeThreshold=mergeThresh)                                      
-        coldpoolfield_list.append(coldpoolfield)   
+        coldpoolfield_temp = copy.deepcopy(coldpoolfield)   
     
     else:
         # Create RainField and add to rainfield list
         rainfield = RainField(timestep=start+i,
                               rainIntensity=dataloader.getRint(),
                               rainMarkersOld=rainfield_list[i-1].getRainMarkers(),
-                              oldCps=coldpoolfield_list[i-1].getLabeledCps(),
+                              oldCps=coldpoolfield_temp.getLabeledCps(),
                               rainIntensityThreshold=rintThresh,
                               rainPatchMinSize=rainPatchMinSize,
                               periodicDomain=periodicDomain)    
@@ -180,13 +182,13 @@ for i in range(end-start):
                                      v=dataloader.getV(), 
                                      w=dataloader.getW(), 
                                      rint=dataloader.getRint(), 
-                                     oldCps=coldpoolfield_list[i-1].getLabeledCps())            
+                                     oldCps=coldpoolfield_temp.getLabeledCps())            
         
         # Combine the markers from rain and old cold pools and adapt the segmentation 
         # in case old cold pools are still active
         markers, segmentation = createMarkers(rainfield_list=rainfield_list,
                                               rainPatchList=RainField.rainpatch_list,
-                                              oldCps=coldpoolfield_list[i-1].getLabeledCps(),
+                                              oldCps=coldpoolfield_temp.getLabeledCps(),
                                               coldPoolList=ColdPoolField.coldpool_list,
                                               segmentation=segmentation,
                                               dataset=ds,
@@ -200,12 +202,12 @@ for i in range(end-start):
                                       rainMarkers=rainfield.getRainMarkers(),
                                       dataloader=dataloader,
                                       mask=segmentation,
-                                      oldCps=coldpoolfield_list[i-1].getLabeledCps(),
+                                      oldCps=coldpoolfield_temp.getLabeledCps(),
                                       periodicDomain=periodicDomain,
                                       domainStats=postprocessingDict["domain"],
                                       fillOnlyBackgroundHoles=False,
                                       mergeThreshold=mergeThresh)  
-        coldpoolfield_list.append(coldpoolfield)    
+        coldpoolfield_temp = copy.deepcopy(coldpoolfield)     
 
         
 
@@ -257,7 +259,9 @@ exportDfs(postprocessingDict=postprocessingDict,
           cp_df=cp_df,
           family_df=family_df)
 
-
-
+# Store the end time
+tend = datetime.now()
+print("End time: " +str(tend))
+print("Execution time [s]: " + str((tend-tstart).seconds))
 
 
