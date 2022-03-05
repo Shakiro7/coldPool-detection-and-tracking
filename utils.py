@@ -377,7 +377,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
     boundary_10 = mask[:,0]
     boundary_11 = mask[:,-1]
     
-    if not periodicDomain or (not (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True)):
+    if not periodicDomain or (not (boundary_00.any() and boundary_01.any()) and not (boundary_10.any() and boundary_11.any())):
         labeledCps = watershed(elevationMap, markers, mask=mask)
         if fillOnlyBackgroundHoles:
             for cp in unique_nonzero(labeledCps):
@@ -398,91 +398,293 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                 filled_cp = ndi.binary_fill_holes(labeledCps == cp)
                 labeledCps = np.where(filled_cp, cp, labeledCps)
 
-    elif (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True):
+    elif (boundary_00.any() and boundary_01.any()) and not (boundary_10.any() and boundary_11.any()):
         pad_width = ((mask.shape[0], mask.shape[0]),(0,0))
         labeledCps = watershed(np.pad(elevationMap,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
                                mask=np.pad(mask,pad_width,mode='wrap'))
-        if fillOnlyBackgroundHoles:
-            labeledCpsCenter = labeledCps[mask.shape[0]:mask.shape[0]*2,:] 
-            for cp in unique_nonzero(labeledCps):
-                # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
-                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
-                filled_cp = filled_cp[mask.shape[0]:mask.shape[0]*2,:] 
-                if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
-                    filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
-                    fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                    labeled_fill_blobs = label(fill_blobs)
-                    for blob in unique_nonzero(labeled_fill_blobs):
-                        boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
-                        boundary_blob = boundary_blob_bool * labeledCpsCenter
-                        if all(unique_nonzero(boundary_blob)==cp):
-                            labeledCpsCenter[labeled_fill_blobs==blob] = cp
-            labeledCps = labeledCpsCenter
+        # If cold pools emerged at boundary 0, fill holes with periodic boundary 0, else without  
+        if labeledCps[mask.shape[0],:].any() and labeledCps[mask.shape[0]*2-1,:].any():
+            if fillOnlyBackgroundHoles:
+                labeledCpsCenter = labeledCps[mask.shape[0]:mask.shape[0]*2,:] 
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
+                    if cp not in boundary_00 and cp not in boundary_01:
+                        filled_cp = ndi.binary_fill_holes(labeledCpsCenter == cp)
+                        if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                            filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                            fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                            labeled_fill_blobs = label(fill_blobs)
+                            for blob in unique_nonzero(labeled_fill_blobs):
+                                boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                                boundary_blob = boundary_blob_bool * labeledCpsCenter
+                                if all(unique_nonzero(boundary_blob)==cp):
+                                    labeledCpsCenter[labeled_fill_blobs==blob] = cp                        
+                    else:
+                        filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                        filled_cp = filled_cp[mask.shape[0]:mask.shape[0]*2,:] 
+                        if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                            filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                            fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                            labeled_fill_blobs = label(fill_blobs)
+                            for blob in unique_nonzero(labeled_fill_blobs):
+                                boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                                boundary_blob = boundary_blob_bool * labeledCpsCenter
+                                if all(unique_nonzero(boundary_blob)==cp):
+                                    labeledCpsCenter[labeled_fill_blobs==blob] = cp
+                labeledCps = labeledCpsCenter
+            else:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp
+                    if cp not in boundary_00 and cp not in boundary_01:
+                        filled_cp = ndi.binary_fill_holes(labeledCps[mask.shape[0]:mask.shape[0]*2,:] == cp)
+                        labeledCps[mask.shape[0]:mask.shape[0]*2,:] = np.where(filled_cp, cp, labeledCps[mask.shape[0]:mask.shape[0]*2,:])                 
+                    else:
+                        filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                        labeledCps = np.where(filled_cp, cp, labeledCps)
+                labeledCps = labeledCps[mask.shape[0]:mask.shape[0]*2,:]
         else:
-            for cp in unique_nonzero(labeledCps):
-                # Fill possible holes in the cp
-                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
-                labeledCps = np.where(filled_cp, cp, labeledCps)
-            labeledCps = labeledCps[mask.shape[0]:mask.shape[0]*2,:] 
+            labeledCps = labeledCps[mask.shape[0]:mask.shape[0]*2,:]
+            if fillOnlyBackgroundHoles:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes
+                    filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                    if not np.array_equal(filled_cp, (labeledCps == cp)):
+                        filled_cp_zeros = (filled_cp == True) & (labeledCps == 0)
+                        fill_blobs = filled_cp_zeros & (labeledCps != cp)
+                        labeled_fill_blobs = label(fill_blobs)
+                        for blob in unique_nonzero(labeled_fill_blobs):
+                            boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                            boundary_blob = boundary_blob_bool * labeledCps
+                            if all(unique_nonzero(boundary_blob)==cp):
+                                labeledCps[labeled_fill_blobs==blob] = cp
+            else:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp
+                    filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                    labeledCps = np.where(filled_cp, cp, labeledCps)            
 
-    elif not (boundary_00.any()==True and boundary_01.any()==True) and (boundary_10.any()==True and boundary_11.any()==True):
+    elif not (boundary_00.any() and boundary_01.any()) and (boundary_10.any() and boundary_11.any()):
         pad_width = ((0,0),(mask.shape[1], mask.shape[1]))
         labeledCps = watershed(np.pad(elevationMap,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
                                mask=np.pad(mask,pad_width,mode='wrap'))
-        if fillOnlyBackgroundHoles:
-            labeledCpsCenter = labeledCps[:,mask.shape[1]:mask.shape[1]*2]  
-            for cp in unique_nonzero(labeledCps):
-                # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
-                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
-                filled_cp = filled_cp[:,mask.shape[1]:mask.shape[1]*2] 
-                if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
-                    filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
-                    fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                    labeled_fill_blobs = label(fill_blobs)
-                    for blob in unique_nonzero(labeled_fill_blobs):
-                        boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
-                        boundary_blob = boundary_blob_bool * labeledCpsCenter
-                        if all(unique_nonzero(boundary_blob)==cp):
-                            labeledCpsCenter[labeled_fill_blobs==blob] = cp
-            labeledCps = labeledCpsCenter
+        # If cold pools emerged at boundary 1, fill holes with periodic boundary 1, else without  
+        if labeledCps[:,mask.shape[1]].any() and labeledCps[:,mask.shape[1]*2-1].any():        
+            if fillOnlyBackgroundHoles:
+                labeledCpsCenter = labeledCps[:,mask.shape[1]:mask.shape[1]*2]  
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
+                    if cp not in boundary_10 and cp not in boundary_11:
+                        filled_cp = ndi.binary_fill_holes(labeledCpsCenter  == cp)
+                        if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                            filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                            fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                            labeled_fill_blobs = label(fill_blobs)
+                            for blob in unique_nonzero(labeled_fill_blobs):
+                                boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                                boundary_blob = boundary_blob_bool * labeledCpsCenter
+                                if all(unique_nonzero(boundary_blob)==cp):
+                                    labeledCpsCenter[labeled_fill_blobs==blob] = cp                        
+                    else:
+                        filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                        filled_cp = filled_cp[:,mask.shape[1]:mask.shape[1]*2] 
+                        if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                            filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                            fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                            labeled_fill_blobs = label(fill_blobs)
+                            for blob in unique_nonzero(labeled_fill_blobs):
+                                boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                                boundary_blob = boundary_blob_bool * labeledCpsCenter
+                                if all(unique_nonzero(boundary_blob)==cp):
+                                    labeledCpsCenter[labeled_fill_blobs==blob] = cp
+                labeledCps = labeledCpsCenter
+            else:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp
+                    if cp not in boundary_10 and cp not in boundary_11:
+                        filled_cp = ndi.binary_fill_holes(labeledCps[:,mask.shape[1]:mask.shape[1]*2] == cp)
+                        labeledCps[:,mask.shape[1]:mask.shape[1]*2] = np.where(filled_cp, cp, labeledCps[:,mask.shape[1]:mask.shape[1]*2])                        
+                    else:
+                        filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                        labeledCps = np.where(filled_cp, cp, labeledCps)
+                labeledCps = labeledCps[:,mask.shape[1]:mask.shape[1]*2] 
         else:
-            for cp in unique_nonzero(labeledCps):
-                # Fill possible holes in the cp
-                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
-                labeledCps = np.where(filled_cp, cp, labeledCps)
             labeledCps = labeledCps[:,mask.shape[1]:mask.shape[1]*2] 
-        
+            if fillOnlyBackgroundHoles:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes
+                    filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                    if not np.array_equal(filled_cp, (labeledCps == cp)):
+                        filled_cp_zeros = (filled_cp == True) & (labeledCps == 0)
+                        fill_blobs = filled_cp_zeros & (labeledCps != cp)
+                        labeled_fill_blobs = label(fill_blobs)
+                        for blob in unique_nonzero(labeled_fill_blobs):
+                            boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                            boundary_blob = boundary_blob_bool * labeledCps
+                            if all(unique_nonzero(boundary_blob)==cp):
+                                labeledCps[labeled_fill_blobs==blob] = cp
+            else:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp
+                    filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                    labeledCps = np.where(filled_cp, cp, labeledCps)             
+                        
     else:
         pad_width = (mask.shape[0], mask.shape[1])
         labeledCps = watershed(np.pad(elevationMap,pad_width,mode='wrap'), np.pad(markers,pad_width,mode='wrap'), 
                                mask=np.pad(mask,pad_width,mode='wrap'))
-        if fillOnlyBackgroundHoles:
-            labeledCpsCenter = labeledCps[mask.shape[0]:mask.shape[0]*2, 
-                                          mask.shape[1]:mask.shape[1]*2]
-            for cp in unique_nonzero(labeledCps):
-                # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
-                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
-                filled_cp = filled_cp[mask.shape[0]:mask.shape[0]*2, 
-                                      mask.shape[1]:mask.shape[1]*2]
-                if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
-                    filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
-                    fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                    labeled_fill_blobs = label(fill_blobs)
-                    for blob in unique_nonzero(labeled_fill_blobs):
-                        boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
-                        boundary_blob = boundary_blob_bool * labeledCpsCenter
-                        if all(unique_nonzero(boundary_blob)==cp):
-                            labeledCpsCenter[labeled_fill_blobs==blob] = cp
-            labeledCps = labeledCpsCenter
+        centerBoundary_00 = labeledCps[mask.shape[0],:]
+        centerBoundary_01 = labeledCps[mask.shape[0]*2-1,:]
+        centerBoundary_10 = labeledCps[:,mask.shape[1]]
+        centerBoundary_11 = labeledCps[:,mask.shape[1]*2-1]
+        # If cold pools emerged at boundary 0 and boundary 1, fill also holes with fully periodic boundaries 
+        if centerBoundary_00.any() and centerBoundary_01.any() and centerBoundary_10.any() and centerBoundary_11.any():          
+            if fillOnlyBackgroundHoles:
+                labeledCpsCenter = labeledCps[mask.shape[0]:mask.shape[0]*2, 
+                                              mask.shape[1]:mask.shape[1]*2]
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
+                    if cp not in boundary_01 and cp not in boundary_10 and cp not in boundary_10 and cp not in boundary_11:
+                        filled_cp = ndi.binary_fill_holes(labeledCpsCenter == cp)
+                        if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                            filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                            fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                            labeled_fill_blobs = label(fill_blobs)
+                            for blob in unique_nonzero(labeled_fill_blobs):
+                                boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                                boundary_blob = boundary_blob_bool * labeledCpsCenter
+                                if all(unique_nonzero(boundary_blob)==cp):
+                                    labeledCpsCenter[labeled_fill_blobs==blob] = cp                        
+                    else:
+                        filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                        filled_cp = filled_cp[mask.shape[0]:mask.shape[0]*2, 
+                                              mask.shape[1]:mask.shape[1]*2]
+                        if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                            filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                            fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                            labeled_fill_blobs = label(fill_blobs)
+                            for blob in unique_nonzero(labeled_fill_blobs):
+                                boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                                boundary_blob = boundary_blob_bool * labeledCpsCenter
+                                if all(unique_nonzero(boundary_blob)==cp):
+                                    labeledCpsCenter[labeled_fill_blobs==blob] = cp
+                labeledCps = labeledCpsCenter
+            else:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp
+                    if cp not in boundary_01 and cp not in boundary_10 and cp not in boundary_10 and cp not in boundary_11:
+                        filled_cp = ndi.binary_fill_holes(labeledCps[mask.shape[0]:mask.shape[0]*2,mask.shape[1]:mask.shape[1]*2] == cp)
+                        labeledCps[mask.shape[0]:mask.shape[0]*2,mask.shape[1]:mask.shape[1]*2] = np.where(filled_cp, cp, labeledCps[mask.shape[0]:mask.shape[0]*2,mask.shape[1]:mask.shape[1]*2])                        
+                    else:
+                        filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                        labeledCps = np.where(filled_cp, cp, labeledCps)                        
+                labeledCps = labeledCps[mask.shape[0]:mask.shape[0]*2, 
+                                        mask.shape[1]:mask.shape[1]*2]                   
+        # If cold pools emerged at boundary 0, but not boundary 1, fill holes with periodic boundary 0 only 
+        elif (centerBoundary_00.any() and centerBoundary_01.any()) and not (centerBoundary_10.any() and centerBoundary_11.any()): 
+            labeledCps = labeledCps[:,mask.shape[1]:mask.shape[1]*2] 
+            if fillOnlyBackgroundHoles:
+                labeledCpsCenter = labeledCps[mask.shape[0]:mask.shape[0]*2,:] 
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
+                    if cp not in boundary_00 and cp not in boundary_01:
+                        filled_cp = ndi.binary_fill_holes(labeledCpsCenter  == cp)
+                        if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                            filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                            fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                            labeled_fill_blobs = label(fill_blobs)
+                            for blob in unique_nonzero(labeled_fill_blobs):
+                                boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                                boundary_blob = boundary_blob_bool * labeledCpsCenter
+                                if all(unique_nonzero(boundary_blob)==cp):
+                                    labeledCpsCenter[labeled_fill_blobs==blob] = cp                        
+                    else:
+                        filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                        filled_cp = filled_cp[mask.shape[0]:mask.shape[0]*2,:] 
+                        if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                            filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                            fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                            labeled_fill_blobs = label(fill_blobs)
+                            for blob in unique_nonzero(labeled_fill_blobs):
+                                boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                                boundary_blob = boundary_blob_bool * labeledCpsCenter
+                                if all(unique_nonzero(boundary_blob)==cp):
+                                    labeledCpsCenter[labeled_fill_blobs==blob] = cp
+                labeledCps = labeledCpsCenter
+            else:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp
+                    if cp not in boundary_00 and cp not in boundary_01:
+                        filled_cp = ndi.binary_fill_holes(labeledCps[mask.shape[0]:mask.shape[0]*2,:] == cp)
+                        labeledCps[mask.shape[0]:mask.shape[0]*2,:] = np.where(filled_cp, cp, labeledCps[mask.shape[0]:mask.shape[0]*2,:])                 
+                    else:
+                        filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                        labeledCps = np.where(filled_cp, cp, labeledCps)
+                labeledCps = labeledCps[mask.shape[0]:mask.shape[0]*2,:]
+        # If cold pools emerged at boundary 1, but not boundary 0, fill holes with periodic boundary 1 only 
+        elif not (centerBoundary_00.any() and centerBoundary_01.any()) and (centerBoundary_10.any() and centerBoundary_11.any()): 
+            labeledCps = labeledCps[mask.shape[0]:mask.shape[0]*2,:]
+            if fillOnlyBackgroundHoles:
+                labeledCpsCenter = labeledCps[:,mask.shape[1]:mask.shape[1]*2]  
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp if they are 0 (not other cold pools) and only surrounded by the cp itself
+                    if cp not in boundary_10 and cp not in boundary_11:
+                        filled_cp = ndi.binary_fill_holes(labeledCpsCenter == cp)
+                        if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                            filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                            fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                            labeled_fill_blobs = label(fill_blobs)
+                            for blob in unique_nonzero(labeled_fill_blobs):
+                                boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                                boundary_blob = boundary_blob_bool * labeledCpsCenter
+                                if all(unique_nonzero(boundary_blob)==cp):
+                                    labeledCpsCenter[labeled_fill_blobs==blob] = cp
+                    else:
+                        filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                        filled_cp = filled_cp[:,mask.shape[1]:mask.shape[1]*2] 
+                        if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
+                            filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
+                            fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
+                            labeled_fill_blobs = label(fill_blobs)
+                            for blob in unique_nonzero(labeled_fill_blobs):
+                                boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                                boundary_blob = boundary_blob_bool * labeledCpsCenter
+                                if all(unique_nonzero(boundary_blob)==cp):
+                                    labeledCpsCenter[labeled_fill_blobs==blob] = cp
+                labeledCps = labeledCpsCenter
+            else:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp
+                    if cp not in boundary_10 and cp not in boundary_11:
+                        filled_cp = ndi.binary_fill_holes(labeledCps[:,mask.shape[1]:mask.shape[1]*2] == cp)
+                        labeledCps[:,mask.shape[1]:mask.shape[1]*2] = np.where(filled_cp, cp, labeledCps[:,mask.shape[1]:mask.shape[1]*2])                        
+                    else:
+                        filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                        labeledCps = np.where(filled_cp, cp, labeledCps)
+                labeledCps = labeledCps[:,mask.shape[1]:mask.shape[1]*2] 
+        # If no cold pool emerged at both boundaries, fill holes without periodic boundaries
         else:
-            for cp in unique_nonzero(labeledCps):
-                # Fill possible holes in the cp
-                filled_cp = ndi.binary_fill_holes(labeledCps == cp)
-                labeledCps = np.where(filled_cp, cp, labeledCps)
             labeledCps = labeledCps[mask.shape[0]:mask.shape[0]*2, 
                                     mask.shape[1]:mask.shape[1]*2]
-
-    return labeledCps            
+            if fillOnlyBackgroundHoles:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes
+                    filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                    if not np.array_equal(filled_cp, (labeledCps == cp)):
+                        filled_cp_zeros = (filled_cp == True) & (labeledCps == 0)
+                        fill_blobs = filled_cp_zeros & (labeledCps != cp)
+                        labeled_fill_blobs = label(fill_blobs)
+                        for blob in unique_nonzero(labeled_fill_blobs):
+                            boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
+                            boundary_blob = boundary_blob_bool * labeledCps
+                            if all(unique_nonzero(boundary_blob)==cp):
+                                labeledCps[labeled_fill_blobs==blob] = cp
+            else:
+                for cp in unique_nonzero(labeledCps):
+                    # Fill possible holes in the cp
+                    filled_cp = ndi.binary_fill_holes(labeledCps == cp)
+                    labeledCps = np.where(filled_cp, cp, labeledCps)            
+            
+    return labeledCps 
 
 
 # Function to create markers from new rain events and exisiting cold pools
