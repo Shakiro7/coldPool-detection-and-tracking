@@ -24,7 +24,7 @@ from postprocessing import exportDfs, exportFields
 
 # Timesteps to be analyzed
 start = 429
-end = 1081
+end = 439
 
 # Dataset
 simulation = "rce0K_200m"   
@@ -40,12 +40,6 @@ rintThresh: Min. surface rain intensity to be considered part of a rain patch.
     Default is 1 mm/h to be less restrictive and enhance the detection of relations between cold 
     pools. Can be changed to 2 mm/h if not robust enough. Furthermore, rainPatchMinSize can be
     increased to overcome stability issues.
-mergeThresh: Proportion of a cold pool that needs to be overruled by another cold pool to get
-    merged and be assigned a new cold pool ID together. If 1.0 no merging of cold pools takes
-    place. Don't choose values < 0.5 as they can cause problems in identifying the predator 
-    during merges. The predator is the overruling cold pool that inherits its family to the 
-    new formed cold pool.
-    Default is 1.0.
 rainPatchMinSize: Min. number of adjacent pixels above rintThresh to become a rain patch.
     Default is 1 km² (here 25 pixels).
     Smaller values can lead to finer dissipation behaviour, but do increase the 
@@ -69,7 +63,6 @@ dissipationThresh: Min. number of time steps a rain patch is kept (still gets a 
 
 # Setup
 rintThresh = 2          # mm/h
-mergeThresh = 1.0       # overlap for merge
 rainPatchMinSize = 25   # min. no. of pixel
 dissipationThresh = 3   # number of time steps
 periodicDomain = True
@@ -161,8 +154,7 @@ for i in range(end-start):
                                       mask=segmentation,
                                       periodicDomain=periodicDomain,
                                       domainStats=postprocessingDict["domain"],
-                                      fillOnlyBackgroundHoles=False,
-                                      mergeThreshold=mergeThresh)                                      
+                                      fillOnlyBackgroundHoles=False)                                     
         coldpoolfield_temp = copy.deepcopy(coldpoolfield)   
     
     else:
@@ -205,8 +197,7 @@ for i in range(end-start):
                                       oldCps=coldpoolfield_temp.getLabeledCps(),
                                       periodicDomain=periodicDomain,
                                       domainStats=postprocessingDict["domain"],
-                                      fillOnlyBackgroundHoles=False,
-                                      mergeThreshold=mergeThresh)  
+                                      fillOnlyBackgroundHoles=False)  
         coldpoolfield_temp = copy.deepcopy(coldpoolfield)     
 
         

@@ -377,12 +377,11 @@ def createCpDf(coldpool_list,rainpatch_list):
                                   [len(obj.getPatrons()) for obj in coldpool_list],
                                   [obj.getGeneration() for obj in coldpool_list],
                                   [obj.getFamily() for obj in coldpool_list],
-                                  [len(obj.getMerged()) for obj in coldpool_list],
                                   )),
                          columns=['CP_ID','Origin','Start_tstep','Max_area','Max_age',
                                   'Initial_tv_mean','Initial_contact',
                                   'No_parents','No_children','No_patrons',
-                                  'Generation','Family_ID','No_merged'])
+                                  'Generation','Family_ID'])
     
     cp_df['Initial_contact'] = pd.Categorical(cp_df.Initial_contact)
     
@@ -390,17 +389,13 @@ def createCpDf(coldpool_list,rainpatch_list):
     rainDuration_list = []
     initialRintMean_list = []
     k = 0    
-    for cp in cp_df.CP_ID:
-        if cp_df['No_merged'][k] == 0:       
-            for i, obj in enumerate(rainpatch_list):
-                if obj.getId() == cp:
-                    index = i
-                    break        
-            rainDuration_list.append(rainpatch_list[index].getAge())
-            initialRintMean_list.append(rainpatch_list[index].getRintMean())
-        else:
-            rainDuration_list.append(None)
-            initialRintMean_list.append(None)
+    for cp in cp_df.CP_ID:    
+        for i, obj in enumerate(rainpatch_list):
+            if obj.getId() == cp:
+                index = i
+                break        
+        rainDuration_list.append(rainpatch_list[index].getAge())
+        initialRintMean_list.append(rainpatch_list[index].getRintMean())
         k += 1            
         
     # Add both variables to the cold pool dataframe
@@ -429,7 +424,6 @@ def createFamilyDf(coldpoolfamily_list,coldpool_list,rainpatch_list):
     founderRainDuration_list = []
     founderInitialTvMean_list = []    
     for indexFamily in range(len(family_df.Family_ID)):
-        merged_founder = False
         founderInitialRintMean = 0
         founderRainDuration = 0
         founderInitialTvMean = 0
@@ -438,29 +432,19 @@ def createFamilyDf(coldpoolfamily_list,coldpool_list,rainpatch_list):
                 if obj.getId() == founder:
                     index = i
                     break
-            if len(coldpool_list[index].getMerged())==0:
-                founderInitialTvMean += coldpool_list[index].getTvMean()
-                for i, obj in enumerate(rainpatch_list):
-                    if obj.getId() == founder:
-                        index = i
-                        break
-                founderInitialRintMean += rainpatch_list[index].getRintMean()
-                founderRainDuration += rainpatch_list[index].getAge()
-            else:
-                merged_founder = True
+            founderInitialTvMean += coldpool_list[index].getTvMean()
+            for i, obj in enumerate(rainpatch_list):
+                if obj.getId() == founder:
+                    index = i
+                    break
+            founderInitialRintMean += rainpatch_list[index].getRintMean()
+            founderRainDuration += rainpatch_list[index].getAge()
 
-        if not merged_founder:
-            founderInitialRintMean_list.append(founderInitialRintMean/len(family_df.Founder[indexFamily]))
-            founderRainDuration_list.append(founderRainDuration/len(family_df.Founder[indexFamily]))
-            founderInitialTvMean_list.append(founderInitialTvMean/len(family_df.Founder[indexFamily]))
-        else:
-            founderInitialRintMean_list.append(None)
-            founderRainDuration_list.append(None)
-            founderInitialTvMean_list.append(None)            
-            
-            
-            
-            
+        founderInitialRintMean_list.append(founderInitialRintMean/len(family_df.Founder[indexFamily]))
+        founderRainDuration_list.append(founderRainDuration/len(family_df.Founder[indexFamily]))
+        founderInitialTvMean_list.append(founderInitialTvMean/len(family_df.Founder[indexFamily]))
+           
+                    
     # Add the variables to the family dataframe
     family_df['Initial_rint_mean'] = founderInitialRintMean_list
     family_df['Rain_duration'] = founderRainDuration_list

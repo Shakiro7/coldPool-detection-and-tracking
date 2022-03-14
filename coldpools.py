@@ -15,7 +15,6 @@ from scipy.ndimage.measurements import center_of_mass
 from skimage.measure import label
 from utils import unique_nonzero, searchBlobMin, checkBlobContact, scale01, invert01, searchOrigin, findObjIndex
 from utils import createLabeledCps
-from tracking import mergeNew
 
 
 
@@ -24,7 +23,7 @@ from tracking import mergeNew
 
 class ColdPool:
     
-    def __init__(self,identificationNumber,origin,startTimestep,area,virtualTemp_mean,parents,merged,age=1,dissipating=0,intersecting=False,
+    def __init__(self,identificationNumber,origin,startTimestep,area,virtualTemp_mean,parents,age=1,dissipating=0,intersecting=False,
                  generation=1,family=None):
         
         self.__id = identificationNumber
@@ -37,7 +36,6 @@ class ColdPool:
         self.__intersecting = intersecting
         self.__generation = generation
         self.__parents = parents
-        self.__merged = merged
         self.__children = []
         self.__patrons = []
         self.__family = family
@@ -88,9 +86,6 @@ class ColdPool:
         
         return self.__parents
     
-    def getMerged(self):
-        
-        return self.__merged 
 
     def getChildren(self):
         
@@ -243,7 +238,7 @@ class ColdPoolField:
         "noFamiliesInactive": []}
     
     def __init__(self,timestep,markers,rainPatchList,rainMarkers,dataloader,mask,oldCps=None,
-                 periodicDomain=True,domainStats=False,fillOnlyBackgroundHoles=False,mergeThreshold=0.5):
+                 periodicDomain=True,domainStats=False,fillOnlyBackgroundHoles=False):
         
         self.__tstep = timestep
         markers = markers
@@ -255,7 +250,6 @@ class ColdPoolField:
         periodicBc = periodicDomain
         stats = domainStats
         fillOnlyBackgroundHoles = fillOnlyBackgroundHoles
-        mergeThresh = mergeThreshold
         
         # Compute the elevation for the watershed filling
         q01filt = scale01(filters.gaussian(dataloader.getQ(), sigma=1.0))
@@ -302,38 +296,7 @@ class ColdPoolField:
         self.__labeledCps = createLabeledCps(markers=markers, elevationMap=elevationMap, mask=mask,
                                              periodicDomain=periodicBc,fillOnlyBackgroundHoles=False)       
 
-        # Merge cold pools based on previous ColdPoolField
-        if labeledCpsOld is not None:
-            mergedField, mergeDict, mergeList = mergeNew(self.__labeledCps,labeledCpsOld,
-                                                         rainMarkers,rainPatchList,
-                                                         ColdPoolField.coldpool_list,mergeThresh)
-            
-            # If merging took place create new ColdPools for those 
-            if len(mergeDict["newLabels"]) > 0:
-                print("Merged CPs: " + str(len(mergeDict["newLabels"])))
-                l = 0
-                for cp in mergeDict["newLabels"]:
-                    print("CP " + str(mergeDict["predator"][l]) + " overruled CP " + 
-                          str(mergeDict["prey"][l]) + ". New label: " + str(mergeDict["newLabels"][l]))
-                    cp_region = mergedField == cp
-                    predator = mergeDict["predator"][l]
-                    # Copy the family related properties from its predator
-                    for j, obj in enumerate(ColdPoolField.coldpool_list):
-                        if obj.getId() == predator:
-                            index_predator = j
-                            break                
-                    generation = ColdPoolField.coldpool_list[index_predator].getGeneration()
-                    cp_parents = ColdPoolField.coldpool_list[index_predator].getParents()
-                    family = ColdPoolField.coldpool_list[index_predator].getFamily()
-                    state = ColdPoolField.coldpool_list[index_predator].getState()
-                    mergers = [mergeDict["predator"][l]] + mergeDict["prey"][l]
-                       
-                    coldpool = ColdPool(identificationNumber=cp,origin=None,startTimestep=self.__tstep,
-                                        area=np.count_nonzero(cp_region),virtualTemp_mean=np.mean(tv[cp_region]),dissipating=state,
-                                        parents=cp_parents,merged=mergers,intersecting=checkBlobContact(cp_region, mergedField),
-                                        generation=generation,family=family)                   
-                    ColdPoolField.coldpool_list.append(coldpool)
-                    l += 1
+
 
         # Create ColdPools for all unique labels in labeledCps and store them in the list
         cp_labels, cp_counts = unique_nonzero(self.__labeledCps, return_counts=True)
@@ -354,15 +317,10 @@ class ColdPoolField:
             for cp in cp_labels:
                 if any(obj.getId() == cp for obj in ColdPoolField.coldpool_list):
                 # Only modify existing ColdPools
-                    if cp in mergeList:
-                        merge = True
-                    else:
-                        merge = False
                     index_cp = findObjIndex(ColdPoolField.coldpool_list,cp)  
-                    if not merge:
-                        ColdPoolField.coldpool_list[index_cp].setAge()
-                        if cp_counts[n] > ColdPoolField.coldpool_list[index_cp].getArea():
-                            ColdPoolField.coldpool_list[index_cp].setArea(cp_counts[n])
+                    ColdPoolField.coldpool_list[index_cp].setAge()
+                    if cp_counts[n] > ColdPoolField.coldpool_list[index_cp].getArea():
+                        ColdPoolField.coldpool_list[index_cp].setArea(cp_counts[n])
                     # Check if cp is parent, if yes add all children to the cp
                     children_list = []
                     
@@ -496,7 +454,7 @@ class ColdPoolField:
                     origin = searchOrigin(pixelBlob=rain_region,field=field,periodicDomain=periodicBc)
                     coldpool = ColdPool(identificationNumber=cp,origin=origin,
                                         startTimestep=self.__tstep,area=cp_counts[n],virtualTemp_mean=np.mean(tv[cp_region]),
-                                        parents=cp_parents,merged=[],intersecting=checkBlobContact(cp_region, self.__labeledCps),
+                                        parents=cp_parents,intersecting=checkBlobContact(cp_region, self.__labeledCps),
                                         generation=generation,family=family)                   
                     ColdPoolField.coldpool_list.append(coldpool)
                     # Check if the newly appended ColdPool breaks the sortin and if yes, sort again
@@ -505,8 +463,6 @@ class ColdPoolField:
 
                 n += 1
                 
-            # If merging took place, update the field
-            self.__labeledCps = mergedField
               
 
                                         
@@ -535,7 +491,7 @@ class ColdPoolField:
                 origin = searchOrigin(pixelBlob=rain_region,field=field,periodicDomain=periodicBc)
                 coldpool = ColdPool(identificationNumber=cp,origin=origin,
                                     startTimestep=self.__tstep,area=cp_counts[n],virtualTemp_mean=np.mean(tv[cp_region]),
-                                    parents=[],merged=[],intersecting=checkBlobContact(cp_region, self.__labeledCps))
+                                    parents=[],intersecting=checkBlobContact(cp_region, self.__labeledCps))
                 ColdPoolField.coldpool_list.append(coldpool) 
                 n += 1
                 

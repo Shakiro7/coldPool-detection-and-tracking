@@ -737,67 +737,22 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
                             rainPatchList[index].setPatrons(patron)
             else:
                 # If no, get the last rain patch of that cold pool and check if the segmentation still allows it
-                # First find the old cold pool and check if it merged
                 index_oldCp = findObjIndex(coldPoolList,oldCpLabel)
-                if len(coldPoolList[index_oldCp].getMerged()) > 0:
-                    # Check if the merged CP already had own rain. If not, take the last rain of the contributors
-                    if oldCpLabel in [obj.getId() for obj in rainPatchList]:
-                        print(str(oldCpLabel) + " has own rain")
-                        index = findObjIndex(rainPatchList,oldCpLabel) 
-                        lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
-                        for i, obj in enumerate(rainfield_list):
-                            if obj.getTimestep() == lastTimestep:
-                                index = i
-                                break             
-                        oldRainMarkers = rainfield_list[index].getRainMarkers()
-                        dataloaderOld = DataLoader(dataset=dataset, timestep=rainfield_list[index].getTimestep())    
-                        if rintFieldCenter:
-                            oldField = filters.gaussian(dataloaderOld.getRint(), sigma=2.0)
-                        else:
-                            oldField = invert01(scale01(scale01(filters.gaussian(dataloaderOld.getT(), sigma=1.0))+
-                                                        scale01(filters.gaussian(dataloaderOld.getW(), sigma=2.0)))) 
-                        pixel_rain = oldRainMarkers == oldCpLabel
-                        pixel_rainMarker = searchCenterOfMass(pixel_rain, oldField,periodicDomain=periodicDomain)
-                    else:
-                        print(str(oldCpLabel) + " has no own rain")
-                        pixel_rain = np.zeros_like(rainMarkers,dtype=bool)
-                        pixel_rainMarker = np.zeros_like(rainMarkers,dtype=bool)
-                        root_list = findRootEnds(coldPoolList,coldPoolList[index_oldCp].getMerged())
-                        print(coldPoolList[index_oldCp].getMerged())
-                        print(root_list)
-                        root_list = list(set(root_list))
-                        for merged_cp in root_list:
-                            index = findObjIndex(rainPatchList,merged_cp) 
-                            lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
-                            for i, obj in enumerate(rainfield_list):
-                                if obj.getTimestep() == lastTimestep:
-                                    index = i
-                                    break
-                            oldRainMarkers = rainfield_list[index].getRainMarkers()
-                            dataloaderOld = DataLoader(dataset=dataset, timestep=rainfield_list[index].getTimestep())    
-                            if rintFieldCenter:
-                                oldField = filters.gaussian(dataloaderOld.getRint(), sigma=2.0)
-                            else:
-                                oldField = invert01(scale01(scale01(filters.gaussian(dataloaderOld.getT(), sigma=1.0))+
-                                                            scale01(filters.gaussian(dataloaderOld.getW(), sigma=2.0)))) 
-                            pixel_rain = np.where(oldRainMarkers == merged_cp,True,pixel_rain)
-                            pixel_rainMarker = np.where(searchCenterOfMass(oldRainMarkers == merged_cp, oldField,periodicDomain=periodicDomain),True,pixel_rainMarker)                                                
+                index = findObjIndex(rainPatchList,oldCpLabel) 
+                lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
+                for i, obj in enumerate(rainfield_list):
+                    if obj.getTimestep() == lastTimestep:
+                        index = i
+                        break             
+                oldRainMarkers = rainfield_list[index].getRainMarkers()
+                dataloaderOld = DataLoader(dataset=dataset, timestep=rainfield_list[index].getTimestep())    
+                if rintFieldCenter:
+                    oldField = filters.gaussian(dataloaderOld.getRint(), sigma=2.0)
                 else:
-                    index = findObjIndex(rainPatchList,oldCpLabel) 
-                    lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
-                    for i, obj in enumerate(rainfield_list):
-                        if obj.getTimestep() == lastTimestep:
-                            index = i
-                            break             
-                    oldRainMarkers = rainfield_list[index].getRainMarkers()
-                    dataloaderOld = DataLoader(dataset=dataset, timestep=rainfield_list[index].getTimestep())    
-                    if rintFieldCenter:
-                        oldField = filters.gaussian(dataloaderOld.getRint(), sigma=2.0)
-                    else:
-                        oldField = invert01(scale01(scale01(filters.gaussian(dataloaderOld.getT(), sigma=1.0))+
-                                                    scale01(filters.gaussian(dataloaderOld.getW(), sigma=2.0))))                    
-                    pixel_rain = oldRainMarkers == oldCpLabel
-                    pixel_rainMarker = searchCenterOfMass(pixel_rain, oldField,periodicDomain=periodicDomain)
+                    oldField = invert01(scale01(scale01(filters.gaussian(dataloaderOld.getT(), sigma=1.0))+
+                                                scale01(filters.gaussian(dataloaderOld.getW(), sigma=2.0))))                    
+                pixel_rain = oldRainMarkers == oldCpLabel
+                pixel_rainMarker = searchCenterOfMass(pixel_rain, oldField,periodicDomain=periodicDomain)
                 pixel_count_rain = np.count_nonzero(pixel_rain)
                 pixel_origin = coldPoolList[index_oldCp].getOrigin()
                 rain_overlap = pixel_rain * segmentation
