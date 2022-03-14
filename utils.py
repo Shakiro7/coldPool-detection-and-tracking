@@ -44,7 +44,7 @@ def scale01(array):
 
 # Function to invert an array that is in the range from 0 to 1
 def invert01(array01):
-    array01_inverted = (array01 - np.ones_like(array01)) * (-1)
+    array01_inverted = 1 - array01
     return array01_inverted
 
 
