@@ -23,11 +23,11 @@ from postprocessing import exportDfs, exportFields
 
 
 # Timesteps to be analyzed
-start = 429
-end = 439
+start = 408
+end = 1081
 
 # Dataset
-simulation = "rce0K_200m"   
+simulation = "diurnal2K_200m"   
 path = ("/home/jannik/PhD/Programming/gust_front/Romain_data/cp-detection/"+
         simulation+"/"+simulation+"_240x240km2.nc")
 ds = nc.Dataset(path,mode="r")
