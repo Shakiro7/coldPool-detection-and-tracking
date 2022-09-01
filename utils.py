@@ -63,24 +63,32 @@ def searchBlobMin(pixelBlob, field):
 
 # Function to return the index of a class object on a sorted list based on its ID
 def findObjIndex(object_list,object_id):
-    ready = False
     length = len(object_list)
-    end = length-1
-    start = 0
-    counter = 0
-    while not ready:
-        counter += 1
-        if counter == length:
-            warnings.warn("Element " + str(object_id) + " not in list. No index returned. Study results carefully.")
-            return
-        index = start+math.ceil((end-start)/2)
-        if object_list[index].getId() < object_id:
-            start += math.ceil((end-start)/2)
-        elif object_list[index].getId() > object_id:
-            end -= math.ceil((end-start)/2)
-        else:
-            ready = True
-            return index
+    if length < 10:
+        for index, obj in enumerate(object_list):
+            if obj.getId() == object_id:
+                return index
+        # If nothing was returned, raise warning
+        warnings.warn("Element " + str(object_id) + " not in list. No index returned. Study results carefully.")
+        return            
+    else:
+        ready = False
+        end = length-1
+        start = 0
+        counter = 0
+        while not ready:
+            counter += 1
+            if counter == length:
+                warnings.warn("Element " + str(object_id) + " not in list. No index returned. Study results carefully.")
+                return
+            index = start+math.ceil((end-start)/2)
+            if object_list[index].getId() < object_id:
+                start += math.ceil((end-start)/2)
+            elif object_list[index].getId() > object_id:
+                end -= math.ceil((end-start)/2)
+            else:
+                ready = True
+                return index
 
 
 # Function to get the center of masses within blob(s) with respect to a selectable field
@@ -715,37 +723,38 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
         for oldCpLabel in unique_nonzero(oldCps,return_counts=False):
             # Check if the old cold pool still has active rain
             if oldCpLabel in rain_labels:
-                # If yes, add the current marker and the origin one to the markers array,add the old region to the segmentation 
+                # If yes and the segmentation allows at least one pixel of it, add the current marker and the origin one to the markers array,add the old region to the segmentation 
                 # and store patrons (overlapping old cps) if any
-                index_oldCp = findObjIndex(coldPoolList,oldCpLabel)            
                 pixel_rain = rainMarkers == oldCpLabel
-                pixel_origin = coldPoolList[index_oldCp].getOrigin()
-                markers[searchCenterOfMass(pixel_rain, field,periodicDomain=periodicDomain)] = oldCpLabel
-                if oldCps[pixel_origin]==oldCpLabel:
-                    markers[pixel_origin] = np.where(rainMarkers[pixel_origin]==0,oldCpLabel,markers[pixel_origin])
-                segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)
-                rain_overlap = pixel_rain * oldCps
-                unique = unique_nonzero(rain_overlap, return_counts=False)
-                if oldCpLabel in unique:
-                    itemindex = np.where(unique==oldCpLabel)
-                    unique = np.delete(unique, itemindex)
-                if len(unique) > 0:
-                    # Find the index of the rain patch
-                    index = findObjIndex(rainPatchList,oldCpLabel)               
-                    for patron in unique:
-                        if patron not in rainPatchList[index].getPatrons():
-                            rainPatchList[index].setPatrons(patron)
+                if np.count_nonzero(pixel_rain*segmentation) != 0:
+                    index_oldCp = findObjIndex(coldPoolList,oldCpLabel)            
+                    pixel_origin = coldPoolList[index_oldCp].getOrigin()
+                    markers[searchCenterOfMass(pixel_rain, field,periodicDomain=periodicDomain)] = oldCpLabel
+                    if oldCps[pixel_origin]==oldCpLabel:
+                        markers[pixel_origin] = np.where(rainMarkers[pixel_origin]==0,oldCpLabel,markers[pixel_origin])
+                    segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)
+                    rain_overlap = pixel_rain * oldCps
+                    unique = unique_nonzero(rain_overlap, return_counts=False)
+                    if oldCpLabel in unique:
+                        itemindex = np.where(unique==oldCpLabel)
+                        unique = np.delete(unique, itemindex)
+                    if len(unique) > 0:
+                        # Find the index of the rain patch
+                        index_rain = findObjIndex(rainPatchList,oldCpLabel)               
+                        for patron in unique:
+                            if patron not in rainPatchList[index_rain].getPatrons():
+                                rainPatchList[index_rain].setPatrons(patron)
             else:
                 # If no, get the last rain patch of that cold pool and check if the segmentation still allows it
                 index_oldCp = findObjIndex(coldPoolList,oldCpLabel)
-                index = findObjIndex(rainPatchList,oldCpLabel) 
-                lastTimestep = rainPatchList[index].getStart() + rainPatchList[index].getAge() - 1
+                index_rain = findObjIndex(rainPatchList,oldCpLabel) 
+                lastTimestep = rainPatchList[index_rain].getStart() + rainPatchList[index_rain].getAge() - 1
                 for i, obj in enumerate(rainfield_list):
                     if obj.getTimestep() == lastTimestep:
-                        index = i
+                        index_rainField = i
                         break             
-                oldRainMarkers = rainfield_list[index].getRainMarkers()
-                dataloaderOld = DataLoader(dataset=dataset, timestep=rainfield_list[index].getTimestep())    
+                oldRainMarkers = rainfield_list[index_rainField].getRainMarkers()
+                dataloaderOld = DataLoader(dataset=dataset, timestep=lastTimestep)    
                 if rintFieldCenter:
                     oldField = filters.gaussian(dataloaderOld.getRint(), sigma=2.0)
                 else:
@@ -773,49 +782,57 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
                     if oldCps[pixel_origin]==oldCpLabel:
                         markers[pixel_origin] = np.where(rainMarkers[pixel_origin]==0,oldCpLabel,markers[pixel_origin])                    
                     if oldCpLabel in markers[pixel_rainMarker] or markers[pixel_origin] == oldCpLabel:
-                        segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)
-                    index = findObjIndex(coldPoolList,oldCpLabel)                
-                    coldPoolList[index].setState()
+                        segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)              
+                    coldPoolList[index_oldCp].setState()
                     # print("CP " + str(oldCpLabel) + " partly dissipated. Increased state from " + 
-                    #       str(coldPoolList[index].getState()-1) + " to " + str(coldPoolList[index].getState()))
+                    #       str(coldPoolList[index_oldCp].getState()-1) + " to " + str(coldPoolList[index_oldCp].getState()))
                 # If the segmentation does not allow it in the whole rain patch: set dissipating and add the rain patch
                 # and its segmentation only if the dissipation threshold is not reached yet
-                else:
-                    index = findObjIndex(coldPoolList,oldCpLabel)                  
-                    if coldPoolList[index].getState() < dissipationThresh:
+                # 26.08.22: added condition for CP age, so that CPs which are only 1 tstep old, don't benefit from the dissThresh
+                else:                 
+                    #if coldPoolList[index_oldCp].getState() < dissipationThresh:
+                    if (coldPoolList[index_oldCp].getState() < dissipationThresh) and (coldPoolList[index_oldCp].getAge() > 1):
                         markers[pixel_rainMarker] = np.where((rainMarkers[pixel_rainMarker]==0)&(oldCps[pixel_rainMarker]==oldCpLabel),
                                                              oldCpLabel,markers[pixel_rainMarker])
                         if oldCps[pixel_origin]==oldCpLabel:
                             markers[pixel_origin] = np.where(rainMarkers[pixel_origin]==0,oldCpLabel,markers[pixel_origin])                        
                         if oldCpLabel in markers[pixel_rainMarker] or markers[pixel_origin] == oldCpLabel:
                             segmentation = np.where(oldCps == oldCpLabel, 1, segmentation)                    
-                        coldPoolList[index].setState()
+                        coldPoolList[index_oldCp].setState()
                         # print("CP " + str(oldCpLabel) + " dissipated, but below threshold. Increased state from " + 
-                        #       str(coldPoolList[index].getState()-1) + " to " + str(coldPoolList[index].getState()))
+                        #       str(coldPoolList[index_oldCp].getState()-1) + " to " + str(coldPoolList[index_oldCp].getState()))
                     else:
-                        coldPoolList[index].setState()
+                        coldPoolList[index_oldCp].setState()
                         # print("CP " + str(oldCpLabel) + " dissipated and above threshold. Increased state from " + 
-                        #       str(coldPoolList[index].getState()-1) + " to " + str(coldPoolList[index].getState()))
+                        #       str(coldPoolList[index_oldCp].getState()-1) + " to " + str(coldPoolList[index_oldCp].getState()))
         
-        # Loop over remaining rainMarkers (= new rain patches) and add teir center of mass to markers
+        # Loop over remaining rainMarkers (= new rain patches) and add a marker to their center of mass
         new_rain_labels = [x for x in rain_labels if x not in unique_nonzero(oldCps)]
+        # Derive a list with all already existing CPs (if a "new" rain patch label has already a CP, it shouldn't get a marker)
+        cp_labels = [obj.getId() for obj in coldPoolList]
         for new_rain in new_rain_labels:
-            pixel_new_rain = rainMarkers == new_rain
-            markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain
-            # Check if the new rain overlaps with old cold pools. If yes, add them as parents
-            new_rain_overlap = pixel_new_rain * oldCps
-            unique = unique_nonzero(new_rain_overlap, return_counts=False)        
-            if len(unique) > 0:
-                # Find the index of the rain patch
-                index = findObjIndex(rainPatchList,new_rain)               
-                for parent in unique:
-                    if parent not in rainPatchList[index].getParents():
-                        rainPatchList[index].setParents(parent)
+            if new_rain not in cp_labels:
+                pixel_new_rain = rainMarkers == new_rain
+                # Only add a marker if the segmentation allows at least 90% of the rain patch
+                if np.count_nonzero(pixel_new_rain*segmentation) >= 0.9 * np.count_nonzero(pixel_new_rain):
+                    markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain            
+                    # Check if the new rain overlaps with old cold pools. If yes, add them as parents
+                    new_rain_overlap = pixel_new_rain * oldCps
+                    unique, number = unique_nonzero(new_rain_overlap, return_counts=True)        
+                    if len(unique) > 0:
+                        # Find the index of the rain patch
+                        index_rain = findObjIndex(rainPatchList,new_rain)               
+                        for parent in unique:
+                            if parent not in rainPatchList[index_rain].getParents():
+                                rainPatchList[index_rain].setParents(parent)
+                        rainPatchList[index_rain].setMainParent(unique[np.argmax(number)])
     else:
         # Loop over rainMarkers (= new rain patches) and add their center of mass to markers
         for new_rain in rain_labels:
             pixel_new_rain = rainMarkers == new_rain
-            markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain      
+            # Only add a marker if the segmentation allows at least 90% of the rain patch
+            if np.count_nonzero(pixel_new_rain*segmentation) >= 0.9 * np.count_nonzero(pixel_new_rain):
+                markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain      
         
 
     return markers, segmentation

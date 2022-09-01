@@ -23,11 +23,11 @@ from postprocessing import exportDfs, exportFields
 
 
 # Timesteps to be analyzed
-start = 408
-end = 1081
+start = 465
+end = 470
 
 # Dataset
-simulation = "diurnal2K_200m"   
+simulation = "diurnal4K_200m"   
 path = ("/home/jannik/PhD/Programming/gust_front/Romain_data/cp-detection/"+
         simulation+"/"+simulation+"_240x240km2.nc")
 ds = nc.Dataset(path,mode="r")
@@ -37,35 +37,62 @@ ds = nc.Dataset(path,mode="r")
 SETUP INFORMATION
 
 rintThresh: Min. surface rain intensity to be considered part of a rain patch.
-    Default is 1 mm/h to be less restrictive and enhance the detection of relations between cold 
-    pools. Can be changed to 2 mm/h if not robust enough. Furthermore, rainPatchMinSize can be
-    increased to overcome stability issues.
+    Default is 2 mm/h. Can be changed to 1 mm/h if not fine enough.
 rainPatchMinSize: Min. number of adjacent pixels above rintThresh to become a rain patch.
-    Default is 1 km² (here 25 pixels).
+    Default is 3 km² (here 75 pixels).
     Smaller values can lead to finer dissipation behaviour, but do increase the 
     computation time. Very small values ( e.g. 0) may also lead to artificially high
     rain patch numbers, since also individual pixels close to other rain patches get individual
     IDs. Higher numbers can improve the robustness and speed up the computation, but
     lead to coarse dissipation behaviour and an underestimation of cold pool numbers.
     Drager & van den Heever [2017] used a min. area of 8 km² in their algorithm.
-dissipationThresh: Min. number of time steps a rain patch is kept (still gets a marker) during 
-    its dissipation (no active rain anymore and the segmentation does not allow the full patch 
-    as cold pool anymore).
-    Default is 0 (dissipating rain patches are kept as long as they are not dissipated, meaning 
-    that the segmentation does not allow the whole patch anymore; so no "bonus" if the number of 
-    time steps they were dissipating is below the dissipationThresh; However, cold pools that
-    were still non-dissipating the last time step can dissapear without changing into the diss-
-    ipating state before. The threshold can be used to overcome this (real cold pools do not 
-    dissapear without dissipation). A value of 3 seems to improve dissipation behavior without
-    adverse effects.
+dissipationThresh: Min. number of time steps a cold pool receives markers during 
+    its dissipation (no active rain anymore and the segmentation does not allow the full last 
+    rain patch as cold pool anymore).
+    Default is 3. Prevents cold pools from disappearing without dissipation stage.
+    Helps to prevent cold pools from occupying the region of former cold pools when
+    parts of their region are still segmented as potential cold pool by the segmentation.
+    A value of 3 seems to improve dissipation behavior without adverse effects.
+    Not applied if a cold pool was only there for one time step. A cold pool needs to be
+    there for at least two time steps to be saved by the dissipationThresh.
+coldPoolMinSize: Min. number of adjacent cold pool pixels to become a cold pool.
+    Default is rainPatchMinSize, which requires cold pools to be fully developed since
+    very cold regions within rain patches are dropped as long as no gust front hasn't
+    developed and kept up with the rain patch.
+    Smaller patches in the segmentation will be dropped. Checked again for individual
+    cold pools after the labeled cold pool field has been created. 
+onlyNew: Only affects the starting time step. If "True", only cold pools that are in the 
+    beginning of their lifecycle will be detected. If "False", all cold pools that can be
+    linked with rain events will be detected.
+    Default is False.
+patchCheck: If "True", every patch segmented as potential cold pool by the segmentation
+    will be checked and only kept, if the center is divergent (div > 0), the boundary
+    is convergent (div < 0) and the ratio of perimeter and area is smaller or equal to
+    fuzzThresh.
+    Default is True.
+fuzzThresh: Only relevant if patchCheck = True. Threshold for the fuzzyness ratio perimeter/sqrt(area).
+    Default is 40. 
+    Since the kmeans algorithm applied in the segmentation part does always find two groups
+    (cold pool and no cold pool) it has problems in time steps without any cold pool activity.
+    However, since the boundaries between the two groups are very noisy in this case, the fuzzyness
+    ratio may help to drop these patches.
+    Note: As long as no rain patch that satisfies the above criteria is present, no cold pools are 
+    created from the potential cold pool patches identified by the segmentation.
+horResolution: Only relevant if patchCheck = True. Horizontal resolution in lowest model layer in meters.
+    Default is 200 m.    
         
 """
 
 # Setup
-rintThresh = 2          # mm/h
-rainPatchMinSize = 25   # min. no. of pixel
-dissipationThresh = 3   # number of time steps
-periodicDomain = True
+rintThresh = 2                              # mm/h
+rainPatchMinSize = 75                       # min. no. of pixel
+dissipationThresh = 3                       # number of time steps
+coldPoolMinSize = 1 * rainPatchMinSize      # min. no. of pixel
+onlyNew = False                             # True or False
+patchCheck = True                           # True or False (only possible when coldPoolMinSize is not None)
+fuzzThresh = 40                             # max. perimeter/sqrt(area) ratio (only needed if patchCheck=True)
+horResolution = 200                         # m (only needed if patchCheck=True)
+periodicDomain = True                       # True or False
 
 # Post-processing Options
 # =============================================================================
@@ -77,26 +104,26 @@ postprocessingDict = {
     # Fields ------------------------------------------------------------------
     "labeledCps": True,
     "labeledCpsNonDiss": False,
-    "stateLabels": True,
-    "labeledFamilies": True,
+    "stateLabels": False,
+    "labeledFamilies": False,
     "labeledFamiliesNonDiss": False,
     "tv": False,
     "rint": False,
     "showDynGustFront": True, # in the above fields
-    "save_fields": True,
+    "save_fields": False,
     # Cold pool & family statistics -------------------------------------------
-    "cp": True,
-    "family": True,
-    "save_statistics": True,
+    "cp": False,
+    "family": False,
+    "save_statistics": False,
     
     # Export of dataframes ----------------------------------------------------
-    "export_domainDf": True, # domain needs to be True as well
-    "export_cpDf": True,
-    "export_familyDf": True,
+    "export_domainDf": False, # domain needs to be True as well
+    "export_cpDf": False,
+    "export_familyDf": False,
     
     # Export of fields (as compressed single file for each tstep)--------------
-    "export_rawDataMl": True,
-    "export_analysisData": True   
+    "export_rawDataMl": False,
+    "export_analysisData": False   
 }
 # =============================================================================
 
@@ -134,8 +161,13 @@ for i in range(end-start):
         segmentation = segmentDomain(tv=dataloader.getTv(), 
                                      u=dataloader.getU(), 
                                      v=dataloader.getV(), 
-                                     w=dataloader.getW(), 
-                                     rint=dataloader.getRint())
+                                     w=dataloader.getW(),
+                                     rint=dataloader.getRint(),
+                                     minSize=coldPoolMinSize,
+                                     patchCheck=patchCheck,
+                                     horResolution=horResolution,
+                                     fuzzThresh=fuzzThresh,
+                                     periodicDomain=periodicDomain)
 
         # Create markers from rain patches
         markers, segmentation = createMarkers(rainfield_list=rainfield_list,
@@ -152,6 +184,8 @@ for i in range(end-start):
                                       rainMarkers=rainfield.getRainMarkers(),
                                       dataloader=dataloader,
                                       mask=segmentation,
+                                      minSize=coldPoolMinSize,
+                                      onlyNew=onlyNew,
                                       periodicDomain=periodicDomain,
                                       domainStats=postprocessingDict["domain"],
                                       fillOnlyBackgroundHoles=False)                                     
@@ -172,9 +206,13 @@ for i in range(end-start):
         segmentation = segmentDomain(tv=dataloader.getTv(), 
                                      u=dataloader.getU(), 
                                      v=dataloader.getV(), 
-                                     w=dataloader.getW(), 
-                                     rint=dataloader.getRint(), 
-                                     oldCps=coldpoolfield_temp.getLabeledCps())            
+                                     w=dataloader.getW(),
+                                     rint=dataloader.getRint(),                                     
+                                     minSize=coldPoolMinSize, 
+                                     patchCheck=patchCheck,
+                                     horResolution=horResolution,
+                                     fuzzThresh=fuzzThresh,
+                                     periodicDomain=periodicDomain)            
         
         # Combine the markers from rain and old cold pools and adapt the segmentation 
         # in case old cold pools are still active
@@ -194,6 +232,8 @@ for i in range(end-start):
                                       rainMarkers=rainfield.getRainMarkers(),
                                       dataloader=dataloader,
                                       mask=segmentation,
+                                      minSize=coldPoolMinSize,
+                                      onlyNew=onlyNew,
                                       oldCps=coldpoolfield_temp.getLabeledCps(),
                                       periodicDomain=periodicDomain,
                                       domainStats=postprocessingDict["domain"],

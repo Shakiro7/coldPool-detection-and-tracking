@@ -141,14 +141,13 @@ class ColdPool:
 
 class ColdPoolFamily:
     
-    def __init__(self,identificationNumber,founder,startTimestep,familyMembers,age=1,generations=2):
+    def __init__(self,identificationNumber,founder,startTimestep,familyMembers,age=1):
         
         self.__id = identificationNumber
         self.__founder = founder
         self.__startTimestep = startTimestep
         self.__familyMembers = familyMembers
         self.__age = age
-        self.__generations = generations
         
     def __del__(self):
         """
@@ -173,11 +172,7 @@ class ColdPoolFamily:
     
     def getAge(self):
         
-        return self.__age
-    
-    def getGenerations(self):
-        
-        return self.__generations
+        return self.__age    
 
     def setFounder(self,newFoundersList):
         """
@@ -204,15 +199,6 @@ class ColdPoolFamily:
         else:
             self.__age += 1
 
-    def setGenerations(self,generations=None):
-        """
-        If generations is not specified, the generations of an existing ColdPoolFamily are increased by one.
-        Otherwise, the specified generations are assigned as new generations.
-        """          
-        if generations is not None:
-            self.__generations = generations
-        else:
-            self.__generations += 1
             
 
 
@@ -237,7 +223,7 @@ class ColdPoolField:
         "noFamiliesActive": [],
         "noFamiliesInactive": []}
     
-    def __init__(self,timestep,markers,rainPatchList,rainMarkers,dataloader,mask,oldCps=None,
+    def __init__(self,timestep,markers,rainPatchList,rainMarkers,dataloader,mask,minSize=50,onlyNew=False,oldCps=None,
                  periodicDomain=True,domainStats=False,fillOnlyBackgroundHoles=False):
         
         self.__tstep = timestep
@@ -246,10 +232,16 @@ class ColdPoolField:
         rainMarkers = rainMarkers
         tv = dataloader.getTv()      
         mask = mask
+        minSize = minSize
+        onlyNew = onlyNew
         labeledCpsOld = oldCps
         periodicBc = periodicDomain
         stats = domainStats
         fillOnlyBackgroundHoles = fillOnlyBackgroundHoles
+        
+        # Define valid proportions between rain patch and cold pool area
+        minCpRpFactor = 1
+        maxCpRpFactor = 3
         
         # Compute the elevation for the watershed filling
         q01filt = scale01(filters.gaussian(dataloader.getQ(), sigma=1.0))
@@ -296,16 +288,65 @@ class ColdPoolField:
         self.__labeledCps = createLabeledCps(markers=markers, elevationMap=elevationMap, mask=mask,
                                              periodicDomain=periodicBc,fillOnlyBackgroundHoles=False)       
 
-
+        # fig, ax = plt.subplots(figsize=(10,10))
+        # cmap = plt.cm.nipy_spectral  
+        # ax.imshow(self.__labeledCps, cmap=cmap)
+        # ax.set_title('Cps after watershed')
+        # plt.show()  
 
         # Create ColdPools for all unique labels in labeledCps and store them in the list
         cp_labels, cp_counts = unique_nonzero(self.__labeledCps, return_counts=True)
+        
+        if labeledCpsOld is not None:        
+            # Derive a list which holds only the old CPs that were also(!) there the tstep before
+            cp_labels_old, cp_counts_old = unique_nonzero(labeledCpsOld,return_counts=True)
+            cp_labels_new = np.setdiff1d(cp_labels,cp_labels_old)
+            labeledCpsOldAndNew = np.where(np.isin(self.__labeledCps,cp_labels_new),0,self.__labeledCps)
+            cp_labels_oldAndNew, cp_counts_oldAndNew = unique_nonzero(labeledCpsOldAndNew,return_counts=True)
+        
+            # Check if the old CPs fulfill the minSize criterion (new CPs are treated separately later)
+            # CPs that do not fulfill the criterion are either overwritten (if overlapped by other old CP) or dropped (else)
+            l = 0
+            for cp_oldAndNew in cp_labels_oldAndNew:
+                if cp_counts_oldAndNew[l] < minSize:
+                    replace = False
+                    cp_region = labeledCpsOld == cp_oldAndNew
+                    overlap_cp = cp_region * self.__labeledCps
+                    unique, number = unique_nonzero(overlap_cp, return_counts=True)                  
+                    itemindex = np.where(unique==cp_oldAndNew)
+                    unique = np.delete(unique, itemindex)
+                    number = np.delete(number, itemindex)                        
+                    if len(unique) > 0:
+                        # Only take action if the largest overlapper is not a new cp (they are treated separately)
+                        #if any(obj.getId() == unique[np.argmax(number)] for obj in ColdPoolField.coldpool_list):
+                        if unique[np.argmax(number)] in cp_labels_oldAndNew:
+                            updated_label = unique[np.argmax(number)]
+                            replace = True
+                    # If no other cp overlaps its old area, drop it
+                    else:
+                        updated_label = 0
+                        replace = True
+                    if replace:
+                        #print("CP" + str(cp_oldAndNew) + " with " + str(cp_counts_oldAndNew[l]) + "pixel replaced by " + str(updated_label))
+                        self.__labeledCps = np.where(self.__labeledCps == cp_oldAndNew, updated_label, self.__labeledCps)
+                l += 1
+
+        # fig, ax = plt.subplots(figsize=(10,10))
+        # cmap = plt.cm.nipy_spectral  
+        # ax.imshow(self.__labeledCps, cmap=cmap)
+        # ax.set_title('Cps after minSize')
+        # plt.show() 
+        
+        # Update cp_labels
+        cp_labels, cp_counts = unique_nonzero(self.__labeledCps, return_counts=True)
+        
         self.__numberOfColdPools = len(cp_labels)
         n = 0                   
         if labeledCpsOld is not None:
-            # Increase the age of all already exisiting (unique) families of the current cold pool field by one 
-            if any(obj.getFamily() is not None for obj in ColdPoolField.coldpool_list):
-                notNoneFamilies = [x for x in [obj.getFamily() for obj in ColdPoolField.coldpool_list] if x is not None]
+            # Increase the age of all already exisiting (unique) families of the current cold pool field by one
+            currentFamilies = [obj.getFamily() for obj in ColdPoolField.coldpool_list if obj.getId() in cp_labels]
+            if any(obj is not None for obj in currentFamilies):
+                notNoneFamilies = [x for x in currentFamilies if x is not None]
                 families = unique_nonzero(notNoneFamilies)
                 for family in families:
                     ColdPoolField.coldpoolfamily_list[family-1].setAge()
@@ -313,14 +354,13 @@ class ColdPoolField:
             # Create lists to store child cold pool IDs along with the family which they are born in
             childcp_list = []
             family_list = []
-            
             for cp in cp_labels:
                 if any(obj.getId() == cp for obj in ColdPoolField.coldpool_list):
-                # Only modify existing ColdPools
-                    index_cp = findObjIndex(ColdPoolField.coldpool_list,cp)  
-                    ColdPoolField.coldpool_list[index_cp].setAge()
+                # Only modify existing ColdPools                    
+                    index_cp = findObjIndex(ColdPoolField.coldpool_list,cp) 
                     if cp_counts[n] > ColdPoolField.coldpool_list[index_cp].getArea():
                         ColdPoolField.coldpool_list[index_cp].setArea(cp_counts[n])
+                    ColdPoolField.coldpool_list[index_cp].setAge()
                     # Check if cp is parent, if yes add all children to the cp
                     children_list = []
                     
@@ -333,6 +373,7 @@ class ColdPoolField:
                              # Family stuff
                              # Check if a child is not yet assigned to a family
                              if child not in childcp_list:
+                                 
                                  # Check if child has only the cp as parent
                                  if len(rainPatchList[index_child].getParents()) == 1:
                                      # If cp is the only parent and has no family yet, start a new one
@@ -347,9 +388,6 @@ class ColdPoolField:
                                          family = ColdPoolFamily(identificationNumber=familyId, founder=founder, 
                                                                  startTimestep=self.__tstep, familyMembers=familyMembers)
                                          ColdPoolField.coldpoolfamily_list.append(family)
-                                         #print("Family " + str(familyId) + " founded successfully")
-                                         #print(" Founder: " + str(family.getFounder()))
-                                         #print(" Members: " + str(family.getFamilyMembers()))
                                     # If cp is the only parent and has already a family, add the child to it if not yet done
                                      else:
                                          familyLabl = ColdPoolField.coldpool_list[index_cp].getFamily()
@@ -358,63 +396,44 @@ class ColdPoolField:
                                              #print("Adding child " + str(child) + " to family " + str(familyLabl))
                                              family_list.append(familyLabl)
                                              ColdPoolField.coldpoolfamily_list[familyLabl-1].setFamilyMembers(child)
-                                             # If parent of child is from last family generation, increase family generation
-                                             if ColdPoolField.coldpool_list[index_cp].getGeneration() == ColdPoolField.coldpoolfamily_list[familyLabl-1].getGenerations():
-                                                 ColdPoolField.coldpoolfamily_list[familyLabl-1].setGenerations()
+                                             
                                  # If child has more than one parent  
                                  else:
                                     parent_list = rainPatchList[index_child].getParents()
-                                    indexParents_list = []
-                                    for parent in parent_list:
-                                        index_parent = findObjIndex(ColdPoolField.coldpool_list,parent)
-                                        indexParents_list.append(index_parent)
-                                    parentFamilies_list = []
-                                    for indexParent in indexParents_list:
-                                        parentFamilies_list.append(ColdPoolField.coldpool_list[indexParent].getFamily())
-                                    if all(family == None for family in parentFamilies_list):
-                                        #print("Start founding family with multiple parents")
+                                    mainParent = rainPatchList[index_child].getMainParent()
+                                    indexMainParent = findObjIndex(ColdPoolField.coldpool_list,mainParent)
+                                    # In case main parent doesn't have a family yet, found a new one
+                                    if ColdPoolField.coldpool_list[indexMainParent].getFamily() is None:
                                         familyId = len(ColdPoolField.coldpoolfamily_list) + 1
                                         childcp_list.append(child)
-                                        family_list.append(familyId)                                        
-                                        for indexParent in indexParents_list:
-                                            ColdPoolField.coldpool_list[indexParent].setFamily(familyId)
+                                        family_list.append(familyId) 
+                                        ColdPoolField.coldpool_list[indexMainParent].setFamily(familyId)
                                         founder = parent_list
-                                        familyMembers = founder + [child]
+                                        familyMembers = founder + [child]                                        
                                         family = ColdPoolFamily(identificationNumber=familyId, founder=founder, 
                                                                  startTimestep=self.__tstep, familyMembers=familyMembers)
-                                        ColdPoolField.coldpoolfamily_list.append(family)                                        
-                                        #print("Family " + str(familyId) + " founded successfully")
-                                        #print(" Founder: " + str(family.getFounder()))
-                                        #print(" Members: " + str(family.getFamilyMembers()))
+                                        ColdPoolField.coldpoolfamily_list.append(family)
+                                        for parent in [x for x in parent_list if x != mainParent]:
+                                            index_parent = findObjIndex(ColdPoolField.coldpool_list, parent)
+                                            if ColdPoolField.coldpool_list[index_parent].getFamily() is None:
+                                                ColdPoolField.coldpool_list[index_parent].setFamily(familyId)
+                                    # In case main parent has a family already, integrate the child (and the other parents) into it if not yet done     
                                     else:
-                                        notNoneParentFamilies = [x for x in parentFamilies_list if x is not None]
-                                        uniqueParentFamilies = unique_nonzero(notNoneParentFamilies)
-                                        # Find the oldest of the parent families (find the lowest familyId)
-                                        oldestFamily = min(uniqueParentFamilies)
-                                        if child not in ColdPoolField.coldpoolfamily_list[oldestFamily-1].getFamilyMembers():
-                                            #print("Adding child " + str(child) + " to oldest family " + str(oldestFamily))
-                                            childcp_list.append(child)
-                                            family_list.append(oldestFamily)
-                                            ColdPoolField.coldpoolfamily_list[oldestFamily-1].setFamilyMembers(child)
-                                            maxGenerations = 1
-                                            # Loop over all other parent families and integrate them into the oldest family
-                                            if len(uniqueParentFamilies) > 1:
-                                                for parentFamily in uniqueParentFamilies:
-                                                    if parentFamily != oldestFamily:
-                                                        ColdPoolField.coldpoolfamily_list[oldestFamily-1].setFounder(
-                                                            ColdPoolField.coldpoolfamily_list[parentFamily-1].getFounder())
-                                                        ColdPoolField.coldpoolfamily_list[oldestFamily-1].setFamilyMembers(
-                                                            ColdPoolField.coldpoolfamily_list[parentFamily-1].getFamilyMembers())
-                                                        if ColdPoolField.coldpoolfamily_list[parentFamily-1].getGenerations() > maxGenerations:
-                                                            maxGenerations = ColdPoolField.coldpoolfamily_list[parentFamily-1].getGenerations()
-                                            coldpool_list_subset = [ColdPoolField.coldpool_list[index] for index in indexParents_list]
-                                            if any(obj2.getGeneration() > maxGenerations for obj2 in coldpool_list_subset):
-                                                maxGenerations = max([obj2.getGeneration() for obj2 in coldpool_list_subset]) + 1
-                                            else:
-                                                maxGenerations += 1
-                                            ColdPoolField.coldpoolfamily_list[oldestFamily-1].setGenerations(maxGenerations)
-
-                        
+                                        familyLabl = ColdPoolField.coldpool_list[indexMainParent].getFamily()
+                                        if child not in ColdPoolField.coldpoolfamily_list[familyLabl-1].getFamilyMembers():
+                                             childcp_list.append(child)
+                                             family_list.append(familyLabl)
+                                             ColdPoolField.coldpoolfamily_list[familyLabl-1].setFamilyMembers(child)
+                                             for parent in [x for x in parent_list if x != mainParent]:
+                                                 index_parent = findObjIndex(ColdPoolField.coldpool_list, parent)
+                                                 if ColdPoolField.coldpool_list[index_parent].getFamily() is None:
+                                                     ColdPoolField.coldpool_list[index_parent].setFamily(familyLabl)
+                                                     ColdPoolField.coldpoolfamily_list[familyLabl-1].setFamilyMembers(parent)
+                                                 else:
+                                                     if parent not in ColdPoolField.coldpoolfamily_list[familyLabl-1].getFamilyMembers():
+                                                         ColdPoolField.coldpoolfamily_list[familyLabl-1].setFamilyMembers(parent)
+                                            
+                    # If cp has children, add them as children to the cp object    
                     if len(children_list) > 0: 
                         for child in children_list:
                             if child not in ColdPoolField.coldpool_list[index_cp].getChildren():
@@ -432,34 +451,129 @@ class ColdPoolField:
                         
                     
                 else:
-                # Create new ColdPool and append it to coldpool_list
+                # Create new ColdPool and append it to coldpool_list             
                     cp_region = self.__labeledCps == cp
-                    generation = 1
+                    rain_region = rainMarkers == cp
+                    intersecting = checkBlobContact(cp_region, self.__labeledCps)
                     cp_parents = []
-                    family = None
-                    # Check based on the RainPatch if cp is child, if yes assign the parents of the RainPatch also to the cp
+                    replaced = False
+                    # Check based on the RainPatch if cp is child
                     for i, obj in enumerate(rainPatchList):
                         if (obj.getId() == cp) & (len(obj.getParents()) > 0):
                             index_rain = i
                             cp_parents = rainPatchList[index_rain].getParents().copy()
-                            # Check the generation of the parents and assign their max. generation + 1 to the cp
+                            break
+                    # Check if the proportions of rain patch (rp) and the resulting cold pool are reasonable        
+                    if not intersecting:
+                        # If the cp is isolated, keep it if rp <= cp <= 4*rp, else drop it
+                        if (np.count_nonzero(cp_region) > maxCpRpFactor * np.count_nonzero(rain_region)) or (np.count_nonzero(cp_region) < minCpRpFactor * np.count_nonzero(rain_region)):
+                            self.__labeledCps = np.where(self.__labeledCps == cp, 0, self.__labeledCps)
+                            replaced = True
+                    else:
+                        # If the cp is intersecting, check whether it has parents
+                        if len(cp_parents) == 0:
+                            # If the cp has no parents, keep it if rp <= cp <= 4*rp
+                            # In case cp > 4*rp, assign it the label of the largest overlapped cp from the previous tstep
+                            if np.count_nonzero(cp_region) > maxCpRpFactor * np.count_nonzero(rain_region):
+                                overlap_cp = cp_region * labeledCpsOld
+                                unique, number = unique_nonzero(overlap_cp, return_counts=True)                  
+                                if len(unique) > 0:
+                                        updated_label = unique[np.argmax(number)]
+                                # If the cp overlaps no old cp, drop it
+                                else:
+                                    updated_label = 0                            
+                                self.__labeledCps = np.where(self.__labeledCps == cp, updated_label, self.__labeledCps)
+                                replaced = True   
+                            # In case cp < rp, assign it the label of the cp that stole most of its (rain patch) area
+                            elif np.count_nonzero(cp_region) < minCpRpFactor * np.count_nonzero(rain_region):
+                                overlap_rain = rain_region * self.__labeledCps
+                                unique, number = unique_nonzero(overlap_rain, return_counts=True)                  
+                                itemindex = np.where(unique==cp)
+                                unique = np.delete(unique, itemindex)
+                                number = np.delete(number, itemindex)
+                                if len(unique) > 0:
+                                        updated_label = unique[np.argmax(number)]
+                                # If no other cp overlaps that cp's rp, just drop it
+                                else:
+                                    updated_label = 0
+                                self.__labeledCps = np.where(self.__labeledCps == cp, updated_label, self.__labeledCps)
+                                replaced = True
+                        elif len(cp_parents) == 1:
+                            # If the cp has one parent, keep it if rp <= cp <= 4*rp, else replace with parent
+                            if (np.count_nonzero(cp_region) > maxCpRpFactor * np.count_nonzero(rain_region)) or (np.count_nonzero(cp_region) < 1 * np.count_nonzero(rain_region)):
+                                self.__labeledCps = np.where(self.__labeledCps == cp, cp_parents[0], self.__labeledCps)
+                                replaced = True                           
+                        else:
+                            # If the cp has multiple parents, keep it if rp <= cp <= 4*rp
+                            # In case cp > 4*rp, replace with parent that occupied most of its region before
+                            if np.count_nonzero(cp_region) > maxCpRpFactor * np.count_nonzero(rain_region):
+                                overlap_cp = cp_region * labeledCpsOld
+                                unique, number = unique_nonzero(overlap_cp, return_counts=True)                  
+                                itemindex = np.isin(unique,cp_parents)
+                                unique_parents = unique[itemindex]
+                                number_parents = number[itemindex]
+                                if len(unique_parents) > 0:
+                                        updated_label = unique_parents[np.argmax(number_parents)]
+                                # If the cp overlaps no old parent, use the largest rp overlap as in the other case
+                                else:
+                                    updated_label = rainPatchList[index_rain].getMainParent()
+                                self.__labeledCps = np.where(self.__labeledCps == cp, updated_label, self.__labeledCps)
+                                replaced = True
+                            # In case cp < rp, replace with parent with largest rp overlap (stored as main parent)
+                            elif np.count_nonzero(cp_region) < minCpRpFactor * np.count_nonzero(rain_region):
+                                updated_label = rainPatchList[index_rain].getMainParent()
+                                self.__labeledCps = np.where(self.__labeledCps == cp, updated_label, self.__labeledCps)
+                                replaced = True                            
+                                
+                    # If the cp survived the check, create its object
+                    if not replaced:
+                        generation = 1   
+                        family = None                     
+                        # Check the generation of parents (if any) and assign their max. generation + 1 to the cp
+                        if len(cp_parents) > 0:
                             for parent in cp_parents:
                                 index_parent = findObjIndex(ColdPoolField.coldpool_list,parent)
+                                # If parent is main parent, assign its family to the new cp
+                                if parent == rainPatchList[index_rain].getMainParent():
+                                    if ColdPoolField.coldpool_list[index_parent].getFamily() is not None:
+                                        family = ColdPoolField.coldpool_list[index_parent].getFamily()
+                                    # In case the main parent has no family yet (because it was superseeded or below minSize this tstep)
+                                    # -> create the family now and add the new cp as child to all parents
+                                    else:
+                                        # print("CP " + str(cp) + " is an orphan")
+                                        familyId = len(ColdPoolField.coldpoolfamily_list) + 1
+                                        childcp_list.append(cp)
+                                        family_list.append(familyId) 
+                                        ColdPoolField.coldpool_list[index_parent].setFamily(familyId)
+                                        ColdPoolField.coldpool_list[index_parent].setChildren(cp)   
+                                        founder = cp_parents
+                                        familyMembers = founder + [cp]
+                                        ColdPoolField.coldpoolfamily_list.append(ColdPoolFamily(identificationNumber=familyId, founder=founder, 
+                                                                                                startTimestep=self.__tstep, familyMembers=familyMembers))                                        
+                                        family = familyId
+                                        if len(cp_parents) > 1:
+                                            for p in [x for x in cp_parents if x != parent]:
+                                                index_p = findObjIndex(ColdPoolField.coldpool_list, p)
+                                                if ColdPoolField.coldpool_list[index_p].getFamily() is None:
+                                                    ColdPoolField.coldpool_list[index_p].setFamily(familyId)
+                                                ColdPoolField.coldpool_list[index_p].setChildren(cp)  
+                                # Let the new cp obtain the largest parent generation + 1
                                 if ColdPoolField.coldpool_list[index_parent].getGeneration() >= generation:
                                     generation = ColdPoolField.coldpool_list[index_parent].getGeneration() + 1
-                                if ColdPoolField.coldpool_list[index_parent].getFamily() != family:
-                                    family = ColdPoolField.coldpool_list[index_parent].getFamily()
-                            break                    
-                    rain_region = rainMarkers == cp
-                    origin = searchOrigin(pixelBlob=rain_region,field=field,periodicDomain=periodicBc)
-                    coldpool = ColdPool(identificationNumber=cp,origin=origin,
-                                        startTimestep=self.__tstep,area=cp_counts[n],virtualTemp_mean=np.mean(tv[cp_region]),
-                                        parents=cp_parents,intersecting=checkBlobContact(cp_region, self.__labeledCps),
-                                        generation=generation,family=family)                   
-                    ColdPoolField.coldpool_list.append(coldpool)
-                    # Check if the newly appended ColdPool breaks the sortin and if yes, sort again
-                    if coldpool.getId() < ColdPoolField.coldpool_list[-2].getId():
-                        ColdPoolField.coldpool_list = sorted(ColdPoolField.coldpool_list, key=lambda x: x.getId(), reverse=False)
+                        origin = searchOrigin(pixelBlob=rain_region,field=field,periodicDomain=periodicBc)
+                        coldpool = ColdPool(identificationNumber=cp,origin=origin,
+                                            startTimestep=self.__tstep,area=cp_counts[n],virtualTemp_mean=np.mean(tv[cp_region]),
+                                            parents=cp_parents,intersecting=intersecting,generation=generation,family=family)                   
+                        ColdPoolField.coldpool_list.append(coldpool)
+                        # Check if the newly appended ColdPool breaks the sorting and if yes, sort again
+                        try:
+                            if coldpool.getId() < ColdPoolField.coldpool_list[-2].getId():
+                                ColdPoolField.coldpool_list = sorted(ColdPoolField.coldpool_list, key=lambda x: x.getId(), reverse=False)
+                        except:
+                            pass
+                    # If the cold pool was dropped reduce the number of cps by 1
+                    else:
+                        self.__numberOfColdPools -= 1
 
                 n += 1
                 
@@ -488,13 +602,57 @@ class ColdPoolField:
                 # Create new ColdPool for all cold pools and append them to coldpool_list
                 cp_region = self.__labeledCps == cp
                 rain_region = rainMarkers == cp
-                origin = searchOrigin(pixelBlob=rain_region,field=field,periodicDomain=periodicBc)
-                coldpool = ColdPool(identificationNumber=cp,origin=origin,
-                                    startTimestep=self.__tstep,area=cp_counts[n],virtualTemp_mean=np.mean(tv[cp_region]),
-                                    parents=[],intersecting=checkBlobContact(cp_region, self.__labeledCps))
-                ColdPoolField.coldpool_list.append(coldpool) 
+                intersecting = checkBlobContact(cp_region, self.__labeledCps)
+                replaced = False
+                # Check if the proportions of rain patch (rp) and the resulting cold pool are reasonable        
+                if not intersecting:
+                    # If the cp is isolated, keep it if rp <= cp <= 4*rp, else drop it (if onlyNew==False, only check that cp >= rp)
+                    if onlyNew:
+                        if np.count_nonzero(cp_region) > maxCpRpFactor * np.count_nonzero(rain_region):
+                            self.__labeledCps = np.where(self.__labeledCps == cp, 0, self.__labeledCps)
+                            replaced = True
+                    if not replaced:
+                        if np.count_nonzero(cp_region) < minCpRpFactor * np.count_nonzero(rain_region):
+                            self.__labeledCps = np.where(self.__labeledCps == cp, 0, self.__labeledCps)
+                            replaced = True                        
+                else:
+                    # If the cp is intersecting, keep it if rp <= cp <= 4*rp (if onlyNew==False, only check that cp >= rp)
+                    # In case cp > 4*rp, drop it
+                    if onlyNew:
+                        if np.count_nonzero(cp_region) > maxCpRpFactor * np.count_nonzero(rain_region):                          
+                            self.__labeledCps = np.where(self.__labeledCps == cp, 0, self.__labeledCps)
+                            replaced = True   
+                    # In case cp < rp, assign it the label of the cp that stole most of its (rain patch) area
+                    if not replaced:
+                        if np.count_nonzero(cp_region) < minCpRpFactor * np.count_nonzero(rain_region):
+                            overlap_rain = rain_region * self.__labeledCps
+                            unique, number = unique_nonzero(overlap_rain, return_counts=True)                  
+                            itemindex = np.where(unique==cp)
+                            unique = np.delete(unique, itemindex)
+                            number = np.delete(number, itemindex)
+                            if len(unique) > 0:
+                                    updated_label = unique[np.argmax(number)]
+                            # If no other cp overlaps that cp's rp, just drop it
+                            else:
+                                updated_label = 0
+                            self.__labeledCps = np.where(self.__labeledCps == cp, updated_label, self.__labeledCps)
+                            replaced = True                    
+                if not replaced:
+                    origin = searchOrigin(pixelBlob=rain_region,field=field,periodicDomain=periodicBc)
+                    coldpool = ColdPool(identificationNumber=cp,origin=origin,
+                                        startTimestep=self.__tstep,area=cp_counts[n],virtualTemp_mean=np.mean(tv[cp_region]),
+                                        parents=[],intersecting=intersecting)
+                    ColdPoolField.coldpool_list.append(coldpool)
+                # If the cold pool was dropped reduce the number of cps by 1
+                else:
+                    self.__numberOfColdPools -= 1
                 n += 1
                 
+        # fig, ax = plt.subplots(figsize=(10,10))
+        # cmap = plt.cm.nipy_spectral  
+        # ax.imshow(self.__labeledCps, cmap=cmap)
+        # ax.set_title('Cps after family routine')
+        # plt.show()         
         
         # Evaluate the domain statistics if stats = true
         if stats:

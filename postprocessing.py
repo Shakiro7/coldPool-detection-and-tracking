@@ -18,7 +18,7 @@ from utils import unique_nonzero
 directory = "/home/jannik/PhD/Programming/project-cp-detection/cp-detection-algorithm_data/"
 
 def plotFields(postprocessingDict,dataloader,coldpoolfield):
-
+    # vmax = 200 # in order to plot labeled CPs with unique color for each CP enter a vmax above the final no. of CPs and change the cmap
     if postprocessingDict["showDynGustFront"]:
         w = filters.gaussian(dataloader.getW(), sigma=2.0)
         w_mean = np.mean(w)
@@ -51,8 +51,12 @@ def plotFields(postprocessingDict,dataloader,coldpoolfield):
         if postprocessingDict["labeledCps"]:
             fig, ax = plt.subplots(figsize=(10,10))
             cmap = plt.cm.nipy_spectral
-            cmap.set_bad(color='red')    
+            cmap.set_bad(color='red')
             ax.imshow(np.ma.masked_where(w > (w_mean + 2*w_std), coldpoolfield.getLabeledCps()), cmap=cmap)
+            # cmap = plt.cm.prism
+            # cmap.set_bad(color='black')
+            # cmap.set_under('white')              
+            # ax.imshow(np.ma.masked_where(w > (w_mean + 2*w_std), coldpoolfield.getLabeledCps()), cmap=cmap, vmin=1, vmax=vmax)
             ax.set_title('Labeled CPs @ timestep ' + str(dataloader.getTimestep()))
             if postprocessingDict["save_fields"]:
                 plt.savefig(directory+"Plots/"+str(dataloader.getTimestep())+"_"+postprocessingDict["simulation_name"]+
@@ -246,14 +250,6 @@ def plotFamilyStats(postprocessingDict,coldpoolfamily_list,coldpool_list,rainpat
         if postprocessingDict["save_statistics"]:
             plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_histplot_familyMaxAge.png",bbox_inches='tight')
         plt.show()         
-        
-
-        fig, ax = plt.subplots()
-        splot = sns.histplot(data=family_df,x="Generations",stat="percent", discrete=True)
-        splot.set(xlabel="Family generations")
-        if postprocessingDict["save_statistics"]:
-            plt.savefig(directory+"Plots/"+postprocessingDict["simulation_name"]+"_histplot_familyGenerations.png",bbox_inches='tight')
-        plt.show() 
 
 
         fig, ax = plt.subplots()
@@ -414,10 +410,9 @@ def createFamilyDf(coldpoolfamily_list,coldpool_list,rainpatch_list):
                                       [obj.getAge() for obj in coldpoolfamily_list],
                                       [obj.getFounder() for obj in coldpoolfamily_list],
                                       [len(obj.getFamilyMembers()) for obj in coldpoolfamily_list],
-                                      [obj.getGenerations() for obj in coldpoolfamily_list],
                                       )),
                              columns=['Family_ID','Start_tstep','Max_age','Founder',
-                                      'No_familyMembers','Generations'])
+                                      'No_familyMembers'])
     
     # Identify the properties of the family founder(s)
     founderInitialRintMean_list = []

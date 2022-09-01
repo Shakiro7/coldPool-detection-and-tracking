@@ -27,6 +27,7 @@ class RainPatch:
         #self.__rain_sum = rain_sum
         self.__age = age
         self.__parents = []
+        self.__mainParent = None
         self.__patrons = []
 
     def __del__(self):
@@ -61,6 +62,10 @@ class RainPatch:
     def getParents(self):
         
         return self.__parents
+
+    def getMainParent(self):
+        
+        return self.__mainParent
     
     def getPatrons(self):
         
@@ -89,6 +94,12 @@ class RainPatch:
         Adds the ID of a parent ColdPool to the corresponding child RainPatch
         """          
         self.__parents.append(parent)
+        
+    def setMainParent(self,mainParent):
+        """
+        Adds the ID of the parent ColdPool with the largest contribution (overlap) to the corresponding child RainPatch
+        """          
+        self.__mainParent = mainParent
 
     def setPatrons(self,patron):
         """
@@ -130,7 +141,7 @@ class RainField:
             l += 1
         
         # Change labels to start after the max of the last timestep (rainMarkers & old cps) if existing
-        if rainMarkersOld is not None:
+        if (rainMarkersOld is not None) and (len(RainField.rainpatch_list) > 0):
             label_list = np.unique(self.__rainMarkers)
             if label_list[0] == 0:                    
                 label_list = label_list[1:]        
