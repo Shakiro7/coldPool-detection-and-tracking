@@ -23,11 +23,11 @@ from postprocessing import exportDfs, exportFields
 
 
 # Timesteps to be analyzed
-start = 465
-end = 470
+start = 432
+end = 500
 
 # Dataset
-simulation = "diurnal4K_200m"   
+simulation = "rce0K_200m"   
 path = ("/home/jannik/PhD/Programming/gust_front/Romain_data/cp-detection/"+
         simulation+"/"+simulation+"_240x240km2.nc")
 ds = nc.Dataset(path,mode="r")
@@ -85,10 +85,10 @@ horResolution: Only relevant if patchCheck = True. Horizontal resolution in lowe
 
 # Setup
 rintThresh = 2                              # mm/h
-rainPatchMinSize = 75                       # min. no. of pixel
+rainPatchMinSize = 50                       # min. no. of pixel
 dissipationThresh = 3                       # number of time steps
 coldPoolMinSize = 1 * rainPatchMinSize      # min. no. of pixel
-onlyNew = False                             # True or False
+onlyNew = True                             # True or False
 patchCheck = True                           # True or False (only possible when coldPoolMinSize is not None)
 fuzzThresh = 40                             # max. perimeter/sqrt(area) ratio (only needed if patchCheck=True)
 horResolution = 200                         # m (only needed if patchCheck=True)
@@ -104,16 +104,16 @@ postprocessingDict = {
     # Fields ------------------------------------------------------------------
     "labeledCps": True,
     "labeledCpsNonDiss": False,
-    "stateLabels": False,
-    "labeledFamilies": False,
+    "stateLabels": True,
+    "labeledFamilies": True,
     "labeledFamiliesNonDiss": False,
     "tv": False,
     "rint": False,
     "showDynGustFront": True, # in the above fields
-    "save_fields": False,
+    "save_fields": True,
     # Cold pool & family statistics -------------------------------------------
-    "cp": False,
-    "family": False,
+    "cp": True,
+    "family": True,
     "save_statistics": False,
     
     # Export of dataframes ----------------------------------------------------
@@ -122,8 +122,8 @@ postprocessingDict = {
     "export_familyDf": False,
     
     # Export of fields (as compressed single file for each tstep)--------------
-    "export_rawDataMl": False,
-    "export_analysisData": False   
+    "export_rawDataMl": True,
+    "export_analysisData": True   
 }
 # =============================================================================
 
@@ -250,7 +250,8 @@ for i in range(end-start):
     # Export fields if specified
     exportFields(postprocessingDict=postprocessingDict,
                  dataloader=dataloader,
-                 coldpoolfield=coldpoolfield)    
+                 coldpoolfield=coldpoolfield,
+                 rainMarkers=rainfield.getRainMarkers())    
     
     # Delete current dataloader object
     del dataloader

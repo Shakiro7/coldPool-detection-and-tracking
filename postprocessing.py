@@ -369,14 +369,16 @@ def createCpDf(coldpool_list,rainpatch_list):
                                   [obj.getTvMean() for obj in coldpool_list],
                                   [obj.getIntersecting() for obj in coldpool_list],
                                   [len(obj.getParents()) for obj in coldpool_list],
+                                  [obj.getParents() for obj in coldpool_list],
                                   [len(obj.getChildren()) for obj in coldpool_list],
+                                  [obj.getChildren() for obj in coldpool_list],
                                   [len(obj.getPatrons()) for obj in coldpool_list],
                                   [obj.getGeneration() for obj in coldpool_list],
                                   [obj.getFamily() for obj in coldpool_list],
                                   )),
                          columns=['CP_ID','Origin','Start_tstep','Max_area','Max_age',
                                   'Initial_tv_mean','Initial_contact',
-                                  'No_parents','No_children','No_patrons',
+                                  'No_parents','Parents','No_children','Children','No_patrons',
                                   'Generation','Family_ID'])
     
     cp_df['Initial_contact'] = pd.Categorical(cp_df.Initial_contact)
@@ -473,7 +475,7 @@ def exportDfs(postprocessingDict,domainStats_df=None,cp_df=None,family_df=None):
 
 
 
-def exportFields(postprocessingDict,dataloader,coldpoolfield):
+def exportFields(postprocessingDict,dataloader,coldpoolfield,rainMarkers):
     
     if postprocessingDict["export_rawDataMl"]:
         binaryLabels = np.where(coldpoolfield.getLabeledCps() != 0, 1, 0)
@@ -491,7 +493,8 @@ def exportFields(postprocessingDict,dataloader,coldpoolfield):
                             labeledCps=coldpoolfield.getLabeledCps(),
                             labeledCpsNonDiss=coldpoolfield.getLabeledCpsActive(),
                             labeledFamilies=coldpoolfield.getLabeledFamilies(), 
-                            labeledFamiliesNonDiss=coldpoolfield.getLabeledFamiliesActive())
+                            labeledFamiliesNonDiss=coldpoolfield.getLabeledFamiliesActive(),
+                            labeledRain=rainMarkers)
 
 
 
