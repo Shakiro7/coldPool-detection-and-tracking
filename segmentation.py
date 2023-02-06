@@ -63,7 +63,7 @@ def segmentDomain(tv, u, v, w, rint, minSize=50, patchCheck=False, horResolution
     # Check that all segmentation blobs are not smaller than minSize
     if minSize is not None:
         # Label each segmentation patch
-        segmentation_labelled = label(segmentation)    
+        segmentation_labelled = label(segmentation,connectivity=1)    
         # Take care of periodic BC for patches
         if periodicDomain:
             for k in range(segmentation_labelled.shape[0]):

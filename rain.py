@@ -125,7 +125,7 @@ class RainField:
         minSize = rainPatchMinSize
         periodicBc = periodicDomain
         
-        self.__rainMarkers = label(filters.gaussian(rint, sigma=2.0) >= rintThresh)
+        self.__rainMarkers = label(filters.gaussian(rint, sigma=2.0) >= rintThresh,connectivity=1)
         # Check if rain patches are smaller than bounding box in x and y and remove them if yes
         # for patch in  unique_nonzero(self.__rainMarkers, return_counts=False):
         #     slice_x, slice_y = ndi.find_objects(self.__rainMarkers==patch)[0]

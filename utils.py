@@ -99,7 +99,7 @@ def searchCenterOfMass(pixelBlob, field,periodicDomain=True):
     boundary_11 = pixelBlob[:,-1]
     
     if not periodicDomain or (not (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True)):
-        labeledBlobs = label(pixelBlob)
+        labeledBlobs = label(pixelBlob,connectivity=1)
         coordinate_arr = np.zeros_like(pixelBlob,dtype=bool)
         for blob in unique_nonzero(labeledBlobs):
             pixel = labeledBlobs == blob
@@ -110,7 +110,7 @@ def searchCenterOfMass(pixelBlob, field,periodicDomain=True):
         
     elif (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True):
         pad_width = ((pixelBlob.shape[0], pixelBlob.shape[0]),(0,0))
-        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'),connectivity=1)
         field_pad = np.pad(field,pad_width,mode='wrap')   
         coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)
         for blob in unique_nonzero(labeledBlobs_pad):
@@ -123,7 +123,7 @@ def searchCenterOfMass(pixelBlob, field,periodicDomain=True):
         
     elif not (boundary_00.any()==True and boundary_01.any()==True) and (boundary_10.any()==True and boundary_11.any()==True):
         pad_width = ((0,0),(pixelBlob.shape[1], pixelBlob.shape[1]))
-        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'),connectivity=1)
         field_pad = np.pad(field,pad_width,mode='wrap')   
         coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)
         for blob in unique_nonzero(labeledBlobs_pad):
@@ -135,7 +135,7 @@ def searchCenterOfMass(pixelBlob, field,periodicDomain=True):
         coordinate_arr = coordinate_arr[:,pixelBlob.shape[1]:pixelBlob.shape[1]*2]  
     else:
         pad_width = (pixelBlob.shape[0], pixelBlob.shape[1])
-        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'),connectivity=1)
         field_pad = np.pad(field,pad_width,mode='wrap')   
         coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)
         for blob in unique_nonzero(labeledBlobs_pad):
@@ -158,7 +158,7 @@ def searchOrigin(pixelBlob, field,periodicDomain=True):
     boundary_11 = pixelBlob[:,-1]
     
     if not periodicDomain or (not (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True)):
-        labeledBlobs = label(pixelBlob)
+        labeledBlobs = label(pixelBlob,connectivity=1)
         coordinate_arr = np.zeros_like(labeledBlobs,dtype=bool)  
         for blob in unique_nonzero(labeledBlobs):
             pixel = labeledBlobs == blob
@@ -185,7 +185,7 @@ def searchOrigin(pixelBlob, field,periodicDomain=True):
         
     elif (boundary_00.any()==True and boundary_01.any()==True) and not (boundary_10.any()==True and boundary_11.any()==True):        
         pad_width = ((pixelBlob.shape[0], pixelBlob.shape[0]),(0,0))
-        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'),connectivity=1)
         field_pad = np.pad(field,pad_width,mode='wrap')
         coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)  
         for blob in unique_nonzero(labeledBlobs_pad):
@@ -214,7 +214,7 @@ def searchOrigin(pixelBlob, field,periodicDomain=True):
         
     elif not (boundary_00.any()==True and boundary_01.any()==True) and (boundary_10.any()==True and boundary_11.any()==True):        
         pad_width = ((0,0),(pixelBlob.shape[1], pixelBlob.shape[1]))
-        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'),connectivity=1)
         field_pad = np.pad(field,pad_width,mode='wrap')
         coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)  
         for blob in unique_nonzero(labeledBlobs_pad):
@@ -243,7 +243,7 @@ def searchOrigin(pixelBlob, field,periodicDomain=True):
         
     else:        
         pad_width = (pixelBlob.shape[0], pixelBlob.shape[1])
-        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'))
+        labeledBlobs_pad = label(np.pad(pixelBlob,pad_width,mode='wrap'),connectivity=1)
         field_pad = np.pad(field,pad_width,mode='wrap')
         coordinate_arr = np.zeros_like(labeledBlobs_pad,dtype=bool)  
         for blob in unique_nonzero(labeledBlobs_pad):
@@ -394,7 +394,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                 if not np.array_equal(filled_cp, (labeledCps == cp)):
                     filled_cp_zeros = (filled_cp == True) & (labeledCps == 0)
                     fill_blobs = filled_cp_zeros & (labeledCps != cp)
-                    labeled_fill_blobs = label(fill_blobs)
+                    labeled_fill_blobs = label(fill_blobs,connectivity=1)
                     for blob in unique_nonzero(labeled_fill_blobs):
                         boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                         boundary_blob = boundary_blob_bool * labeledCps
@@ -421,7 +421,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                         if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
                             filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
                             fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                            labeled_fill_blobs = label(fill_blobs)
+                            labeled_fill_blobs = label(fill_blobs,connectivity=1)
                             for blob in unique_nonzero(labeled_fill_blobs):
                                 boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                                 boundary_blob = boundary_blob_bool * labeledCpsCenter
@@ -433,7 +433,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                         if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
                             filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
                             fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                            labeled_fill_blobs = label(fill_blobs)
+                            labeled_fill_blobs = label(fill_blobs,connectivity=1)
                             for blob in unique_nonzero(labeled_fill_blobs):
                                 boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                                 boundary_blob = boundary_blob_bool * labeledCpsCenter
@@ -459,7 +459,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                     if not np.array_equal(filled_cp, (labeledCps == cp)):
                         filled_cp_zeros = (filled_cp == True) & (labeledCps == 0)
                         fill_blobs = filled_cp_zeros & (labeledCps != cp)
-                        labeled_fill_blobs = label(fill_blobs)
+                        labeled_fill_blobs = label(fill_blobs,connectivity=1)
                         for blob in unique_nonzero(labeled_fill_blobs):
                             boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                             boundary_blob = boundary_blob_bool * labeledCps
@@ -486,7 +486,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                         if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
                             filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
                             fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                            labeled_fill_blobs = label(fill_blobs)
+                            labeled_fill_blobs = label(fill_blobs,connectivity=1)
                             for blob in unique_nonzero(labeled_fill_blobs):
                                 boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                                 boundary_blob = boundary_blob_bool * labeledCpsCenter
@@ -498,7 +498,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                         if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
                             filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
                             fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                            labeled_fill_blobs = label(fill_blobs)
+                            labeled_fill_blobs = label(fill_blobs,connectivity=1)
                             for blob in unique_nonzero(labeled_fill_blobs):
                                 boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                                 boundary_blob = boundary_blob_bool * labeledCpsCenter
@@ -524,7 +524,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                     if not np.array_equal(filled_cp, (labeledCps == cp)):
                         filled_cp_zeros = (filled_cp == True) & (labeledCps == 0)
                         fill_blobs = filled_cp_zeros & (labeledCps != cp)
-                        labeled_fill_blobs = label(fill_blobs)
+                        labeled_fill_blobs = label(fill_blobs,connectivity=1)
                         for blob in unique_nonzero(labeled_fill_blobs):
                             boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                             boundary_blob = boundary_blob_bool * labeledCps
@@ -556,7 +556,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                         if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
                             filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
                             fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                            labeled_fill_blobs = label(fill_blobs)
+                            labeled_fill_blobs = label(fill_blobs,connectivity=1)
                             for blob in unique_nonzero(labeled_fill_blobs):
                                 boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                                 boundary_blob = boundary_blob_bool * labeledCpsCenter
@@ -569,7 +569,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                         if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
                             filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
                             fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                            labeled_fill_blobs = label(fill_blobs)
+                            labeled_fill_blobs = label(fill_blobs,connectivity=1)
                             for blob in unique_nonzero(labeled_fill_blobs):
                                 boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                                 boundary_blob = boundary_blob_bool * labeledCpsCenter
@@ -599,7 +599,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                         if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
                             filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
                             fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                            labeled_fill_blobs = label(fill_blobs)
+                            labeled_fill_blobs = label(fill_blobs,connectivity=1)
                             for blob in unique_nonzero(labeled_fill_blobs):
                                 boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                                 boundary_blob = boundary_blob_bool * labeledCpsCenter
@@ -611,7 +611,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                         if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
                             filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
                             fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                            labeled_fill_blobs = label(fill_blobs)
+                            labeled_fill_blobs = label(fill_blobs,connectivity=1)
                             for blob in unique_nonzero(labeled_fill_blobs):
                                 boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                                 boundary_blob = boundary_blob_bool * labeledCpsCenter
@@ -640,7 +640,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                         if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
                             filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
                             fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                            labeled_fill_blobs = label(fill_blobs)
+                            labeled_fill_blobs = label(fill_blobs,connectivity=1)
                             for blob in unique_nonzero(labeled_fill_blobs):
                                 boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                                 boundary_blob = boundary_blob_bool * labeledCpsCenter
@@ -652,7 +652,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                         if not np.array_equal(filled_cp, (labeledCpsCenter == cp)):
                             filled_cp_zeros = (filled_cp == True) & (labeledCpsCenter == 0)
                             fill_blobs = filled_cp_zeros & (labeledCpsCenter != cp)
-                            labeled_fill_blobs = label(fill_blobs)
+                            labeled_fill_blobs = label(fill_blobs,connectivity=1)
                             for blob in unique_nonzero(labeled_fill_blobs):
                                 boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                                 boundary_blob = boundary_blob_bool * labeledCpsCenter
@@ -680,7 +680,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
                     if not np.array_equal(filled_cp, (labeledCps == cp)):
                         filled_cp_zeros = (filled_cp == True) & (labeledCps == 0)
                         fill_blobs = filled_cp_zeros & (labeledCps != cp)
-                        labeled_fill_blobs = label(fill_blobs)
+                        labeled_fill_blobs = label(fill_blobs,connectivity=1)
                         for blob in unique_nonzero(labeled_fill_blobs):
                             boundary_blob_bool = find_boundaries(labeled_fill_blobs==blob, connectivity=1, mode='outer', background=0)
                             boundary_blob = boundary_blob_bool * labeledCps
@@ -814,7 +814,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
             if new_rain not in cp_labels:
                 pixel_new_rain = rainMarkers == new_rain
                 # Only add a marker if the segmentation allows at least 90% of the rain patch
-                if np.count_nonzero(pixel_new_rain*segmentation) >= 0.9 * np.count_nonzero(pixel_new_rain):
+                if np.count_nonzero(pixel_new_rain*segmentation) >= 0.75 * np.count_nonzero(pixel_new_rain):
                     markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain            
                     # Check if the new rain overlaps with old cold pools. If yes, add them as parents
                     new_rain_overlap = pixel_new_rain * oldCps
@@ -831,7 +831,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
         for new_rain in rain_labels:
             pixel_new_rain = rainMarkers == new_rain
             # Only add a marker if the segmentation allows at least 90% of the rain patch
-            if np.count_nonzero(pixel_new_rain*segmentation) >= 0.9 * np.count_nonzero(pixel_new_rain):
+            if np.count_nonzero(pixel_new_rain*segmentation) >= 0.75 * np.count_nonzero(pixel_new_rain):
                 markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain      
         
 

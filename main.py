@@ -23,11 +23,11 @@ from postprocessing import exportDfs, exportFields
 
 
 # Timesteps to be analyzed
-start = 432
-end = 500
+start = 900
+end = 1021
 
 # Dataset
-simulation = "rce0K_200m"   
+simulation = "diurnal4K_wWind_200m"   
 path = ("/home/jannik/PhD/Programming/gust_front/Romain_data/cp-detection/"+
         simulation+"/"+simulation+"_240x240km2.nc")
 ds = nc.Dataset(path,mode="r")
@@ -88,7 +88,7 @@ rintThresh = 2                              # mm/h
 rainPatchMinSize = 50                       # min. no. of pixel
 dissipationThresh = 3                       # number of time steps
 coldPoolMinSize = 1 * rainPatchMinSize      # min. no. of pixel
-onlyNew = True                             # True or False
+onlyNew = False                             # True or False
 patchCheck = True                           # True or False (only possible when coldPoolMinSize is not None)
 fuzzThresh = 40                             # max. perimeter/sqrt(area) ratio (only needed if patchCheck=True)
 horResolution = 200                         # m (only needed if patchCheck=True)
@@ -118,8 +118,8 @@ postprocessingDict = {
     
     # Export of dataframes ----------------------------------------------------
     "export_domainDf": False, # domain needs to be True as well
-    "export_cpDf": False,
-    "export_familyDf": False,
+    "export_cpDf": True,
+    "export_familyDf": True,
     
     # Export of fields (as compressed single file for each tstep)--------------
     "export_rawDataMl": True,
