@@ -23,11 +23,11 @@ from postprocessing import exportDfs, exportFields
 
 
 # Timesteps to be analyzed
-start = 900
-end = 1021
+start = 432
+end = 1079
 
 # Dataset
-simulation = "diurnal4K_wWind_200m"   
+simulation = "rce0K_200m"   
 path = ("/home/jannik/PhD/Programming/gust_front/Romain_data/cp-detection/"+
         simulation+"/"+simulation+"_240x240km2.nc")
 ds = nc.Dataset(path,mode="r")
@@ -39,7 +39,7 @@ SETUP INFORMATION
 rintThresh: Min. surface rain intensity to be considered part of a rain patch.
     Default is 2 mm/h. Can be changed to 1 mm/h if not fine enough.
 rainPatchMinSize: Min. number of adjacent pixels above rintThresh to become a rain patch.
-    Default is 3 km² (here 75 pixels).
+    Default is 2 km² (here 50 pixels).
     Smaller values can lead to finer dissipation behaviour, but do increase the 
     computation time. Very small values ( e.g. 0) may also lead to artificially high
     rain patch numbers, since also individual pixels close to other rain patches get individual
@@ -68,7 +68,7 @@ onlyNew: Only affects the starting time step. If "True", only cold pools that ar
 patchCheck: If "True", every patch segmented as potential cold pool by the segmentation
     will be checked and only kept, if the center is divergent (div > 0), the boundary
     is convergent (div < 0) and the ratio of perimeter and area is smaller or equal to
-    fuzzThresh.
+    fuzzThresh (only relevant for time steps without cold pools or rainfall).
     Default is True.
 fuzzThresh: Only relevant if patchCheck = True. Threshold for the fuzzyness ratio perimeter/sqrt(area).
     Default is 40. 
@@ -86,10 +86,10 @@ horResolution: Only relevant if patchCheck = True. Horizontal resolution in lowe
 # Setup
 rintThresh = 2                              # mm/h
 rainPatchMinSize = 50                       # min. no. of pixel
-dissipationThresh = 3                       # number of time steps
+dissipationThresh = 0                       # number of time steps
 coldPoolMinSize = 1 * rainPatchMinSize      # min. no. of pixel
 onlyNew = False                             # True or False
-patchCheck = True                           # True or False (only possible when coldPoolMinSize is not None)
+patchCheck = False                           # True or False (only possible when coldPoolMinSize is not None)
 fuzzThresh = 40                             # max. perimeter/sqrt(area) ratio (only needed if patchCheck=True)
 horResolution = 200                         # m (only needed if patchCheck=True)
 periodicDomain = True                       # True or False

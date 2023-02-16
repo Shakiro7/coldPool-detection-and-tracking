@@ -814,7 +814,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
             if new_rain not in cp_labels:
                 pixel_new_rain = rainMarkers == new_rain
                 # Only add a marker if the segmentation allows at least 90% of the rain patch
-                if np.count_nonzero(pixel_new_rain*segmentation) >= 0.75 * np.count_nonzero(pixel_new_rain):
+                if np.count_nonzero(pixel_new_rain*segmentation) >= 0 * np.count_nonzero(pixel_new_rain):
                     markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain            
                     # Check if the new rain overlaps with old cold pools. If yes, add them as parents
                     new_rain_overlap = pixel_new_rain * oldCps
@@ -831,7 +831,7 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
         for new_rain in rain_labels:
             pixel_new_rain = rainMarkers == new_rain
             # Only add a marker if the segmentation allows at least 90% of the rain patch
-            if np.count_nonzero(pixel_new_rain*segmentation) >= 0.75 * np.count_nonzero(pixel_new_rain):
+            if np.count_nonzero(pixel_new_rain*segmentation) >= 0 * np.count_nonzero(pixel_new_rain):
                 markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain      
         
 

@@ -240,8 +240,8 @@ class ColdPoolField:
         fillOnlyBackgroundHoles = fillOnlyBackgroundHoles
         
         # Define valid proportions between rain patch and cold pool area
-        minCpRpFactor = 1
-        maxCpRpFactor = 3
+        minCpRpFactor = 0
+        maxCpRpFactor = 1200*1200
         
         # Compute the elevation for the watershed filling
         q01filt = scale01(filters.gaussian(dataloader.getQ(), sigma=1.0))
