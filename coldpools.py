@@ -224,7 +224,7 @@ class ColdPoolField:
         "noFamiliesInactive": []}
     
     def __init__(self,timestep,markers,rainPatchList,rainMarkers,dataloader,mask,minSize=50,onlyNew=False,oldCps=None,
-                 periodicDomain=True,domainStats=False,fillOnlyBackgroundHoles=False):
+                 periodicDomain=True,domainStats=False,fillOnlyBackgroundHoles=False,minCpRpFactor=1,maxCpRpFactor=3):
         
         self.__tstep = timestep
         markers = markers
@@ -240,8 +240,8 @@ class ColdPoolField:
         fillOnlyBackgroundHoles = fillOnlyBackgroundHoles
         
         # Define valid proportions between rain patch and cold pool area
-        minCpRpFactor = 0
-        maxCpRpFactor = 1200*1200
+        minCpRpFactor = minCpRpFactor
+        maxCpRpFactor = maxCpRpFactor
         
         # Compute the elevation for the watershed filling
         q01filt = scale01(filters.gaussian(dataloader.getQ(), sigma=1.0))

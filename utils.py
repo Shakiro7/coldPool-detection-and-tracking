@@ -697,7 +697,7 @@ def createLabeledCps(markers,elevationMap,mask,periodicDomain=True,fillOnlyBackg
 
 # Function to create markers from new rain events and exisiting cold pools
 def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
-                  coldPoolList=None,oldCps=None,dissipationThresh=3,periodicDomain=True):
+                  coldPoolList=None,oldCps=None,dissipationThresh=3,periodicDomain=True,f_s=0.75):
     
     # Select field for center of mass evaluation: True -> rint, False -> t + w
     rintFieldCenter = False
@@ -813,8 +813,8 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
         for new_rain in new_rain_labels:
             if new_rain not in cp_labels:
                 pixel_new_rain = rainMarkers == new_rain
-                # Only add a marker if the segmentation allows at least 90% of the rain patch
-                if np.count_nonzero(pixel_new_rain*segmentation) >= 0 * np.count_nonzero(pixel_new_rain):
+                # Only add a marker if the segmentation allows at least f_s*100% of the rain patch
+                if np.count_nonzero(pixel_new_rain*segmentation) >= f_s * np.count_nonzero(pixel_new_rain):
                     markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain            
                     # Check if the new rain overlaps with old cold pools. If yes, add them as parents
                     new_rain_overlap = pixel_new_rain * oldCps
@@ -830,8 +830,8 @@ def createMarkers(rainfield_list,rainPatchList,segmentation,dataset,
         # Loop over rainMarkers (= new rain patches) and add their center of mass to markers
         for new_rain in rain_labels:
             pixel_new_rain = rainMarkers == new_rain
-            # Only add a marker if the segmentation allows at least 90% of the rain patch
-            if np.count_nonzero(pixel_new_rain*segmentation) >= 0 * np.count_nonzero(pixel_new_rain):
+            # Only add a marker if the segmentation allows at least f_s*100% of the rain patch
+            if np.count_nonzero(pixel_new_rain*segmentation) >= f_s * np.count_nonzero(pixel_new_rain):
                 markers[searchCenterOfMass(pixel_new_rain, field,periodicDomain=periodicDomain)] = new_rain      
         
 

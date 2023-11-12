@@ -23,13 +23,13 @@ from postprocessing import exportDfs, exportFields
 
 
 # Timesteps to be analyzed
-start = 432
-end = 1079
+start = 0
+end = 19
 
 # Dataset
-simulation = "rce0K_200m"   
+simulation = "diu4K_t761-780"   
 path = ("/home/jannik/PhD/Programming/gust_front/Romain_data/cp-detection/"+
-        simulation+"/"+simulation+"_240x240km2.nc")
+        "diurnal4K_200m/"+simulation+".nc")
 ds = nc.Dataset(path,mode="r")
 
 
@@ -86,11 +86,11 @@ horResolution: Only relevant if patchCheck = True. Horizontal resolution in lowe
 # Setup
 rintThresh = 2                              # mm/h
 rainPatchMinSize = 50                       # min. no. of pixel
-dissipationThresh = 0                       # number of time steps
+dissipationThresh = 3                       # number of time steps
 coldPoolMinSize = 1 * rainPatchMinSize      # min. no. of pixel
 onlyNew = False                             # True or False
-patchCheck = False                           # True or False (only possible when coldPoolMinSize is not None)
-fuzzThresh = 40                             # max. perimeter/sqrt(area) ratio (only needed if patchCheck=True)
+patchCheck = True                           # True or False (only possible if coldPoolMinSize is not None)
+fuzzThresh = 40                             # max. perimeter/sqrt(area) ratio (only possible if patchCheck is True)
 horResolution = 200                         # m (only needed if patchCheck=True)
 periodicDomain = True                       # True or False
 
@@ -110,7 +110,7 @@ postprocessingDict = {
     "tv": False,
     "rint": False,
     "showDynGustFront": True, # in the above fields
-    "save_fields": True,
+    "save_fields": False,
     # Cold pool & family statistics -------------------------------------------
     "cp": True,
     "family": True,
@@ -118,12 +118,12 @@ postprocessingDict = {
     
     # Export of dataframes ----------------------------------------------------
     "export_domainDf": False, # domain needs to be True as well
-    "export_cpDf": True,
-    "export_familyDf": True,
+    "export_cpDf": False,
+    "export_familyDf": False,
     
     # Export of fields (as compressed single file for each tstep)--------------
-    "export_rawDataMl": True,
-    "export_analysisData": True   
+    "export_rawDataMl": False,
+    "export_analysisData": False   
 }
 # =============================================================================
 
