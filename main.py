@@ -28,8 +28,7 @@ end = 19
 
 # Dataset
 simulation = "diu4K_t761-780"   
-path = ("/home/jannik/PhD/Programming/gust_front/Romain_data/cp-detection/"+
-        "diurnal4K_200m/"+simulation+".nc")
+path = (f"data/{simulation}.nc")
 ds = nc.Dataset(path,mode="r")
 
 
