@@ -172,3 +172,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# NetCDF data files since they are too large; example files can be downloaded from
+# https://doi.org/10.5281/zenodo.10115956
+*.nc
